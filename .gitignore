@@ -1,0 +1,31 @@
+# IDE / OS
+.vscode/
+.DS_Store
+Thumbs.db
+
+# build / cmake
+/build/
+/**/build/
+CMakeFiles/
+CMakeCache.txt
+*.cmake
+*.ninja
+.ninja_*
+compile_commands.json
+Makefile
+Testing/
+
+# binari/oggetti
+*.o
+*.obj
+*.a
+*.so
+*.dll
+*.dylib
+*.exe
+*.app
+*.out
+*.log
+
+# programmi di prova
+/00_asm_programs/
