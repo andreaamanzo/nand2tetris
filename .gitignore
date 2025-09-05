@@ -27,5 +27,8 @@ Testing/
 *.out
 *.log
 
+# .hack
+**/*.hack
+
 # programmi di prova
 /00_asm_programs/
