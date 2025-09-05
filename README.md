@@ -4,7 +4,7 @@ This repository collects my **solutions** and **implementations** for the **[Nan
 
 ## Tools implementation (index)
 - `06/Assembler/` — C++17 **Assembler** (ASM → HACK)
-- `07/VMtranslator/` — C++17 **VM translator** (VM → ASM)
+- `08/VMtranslator/` — C++17 **VM translator** (VM → ASM)
 
 ## Build (tools)
 ```bash
@@ -26,7 +26,7 @@ cmake --build build --config Release
 
 ### VM translator (VM → ASM)
 ```bash
-# from: 07/VMtranslator/build
+# from: 08/VMtranslator/build
 
 # Single file
 ./VMtranslator path/to/File.vm
