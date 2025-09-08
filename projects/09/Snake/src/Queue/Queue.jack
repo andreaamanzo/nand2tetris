@@ -1,0 +1,66 @@
+class Queue {
+  field List head;   // first element
+  field List tail;   // last element
+
+  constructor Queue new() {
+    let head = null;
+    let tail = null;
+    return this;
+  }
+
+  /** Inserts an element at the end (enqueue). */
+  method void push(int n) {
+    var List node;
+    let node = List.new(n, null);
+
+    if (head = null) {
+      // empty queue: head and tail are the same
+      let head = node;
+      let tail = node;
+    } else {
+      // link new node at the end
+      do tail.setNext(node);
+      let tail = node;
+    }
+    return;
+  }
+
+  /** Removes the element at the head (dequeue) and returns its value. */
+  method int pop() {
+    var int value;
+    var List oldHead;
+
+    if (head = null) {
+      // empty queue → return -1
+      return -1;
+    }
+
+    let value = head.getData();
+    let oldHead = head;
+    let head = head.getNext();
+
+    // if queue becomes empty, reset tail
+    if (head = null) {
+      let tail = null;
+    }
+
+    do Memory.deAlloc(oldHead);
+    return value;
+  }
+
+  /** Returns the value at the tail without removing it. */
+  method int peekTail() {
+    if (tail = null) {
+      return -1;   // empty queue
+    }
+    return tail.getData();
+  }
+
+  /** Returns the value at the head without removing it. */
+  method int peekHead() {
+    if (head = null) {
+      return -1;   // empty queue
+    }
+    return head.getData();
+  }
+}

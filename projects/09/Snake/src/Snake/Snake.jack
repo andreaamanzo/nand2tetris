@@ -1,0 +1,79 @@
+class Snake {
+  
+  field int pieceSize;
+  field int nPieces;
+  field Array pieces;
+  field Queue instructions;
+
+  constructor Snake new(int in_pieceSize, int in_nPieces) {
+    var int i;
+    var int posX, posY;
+
+    let pieceSize = in_pieceSize;
+    let nPieces = in_nPieces;
+    let pieces = Array.new(nPieces);
+
+    // the snake starts at (0, 0)
+    let posX = 0;
+    let posY = 0;
+
+    let i = 0;
+    while (i < nPieces) {
+      let pieces[i] = Piece.new(pieceSize, posX, posY);
+
+      let posX = posX + pieceSize;
+
+      let i = i + 1;
+    }
+
+    return this;
+  }
+
+  method void dispose() {
+    var int i;
+    var Piece piece;
+
+    let i = 0;
+    while (i < nPieces) {
+      let piece = pieces[i];
+      do piece.dispose();
+
+      let i = i + 1;
+    }
+
+    do Memory.deAlloc(this);
+
+    return;
+  }
+
+  method void draw() {
+    var int i;
+    var Piece piece;
+
+    let i = 0;
+    while (i < nPieces) {
+      let piece = pieces[i];
+      do piece.draw();
+
+      let i = i + 1;
+    }
+
+    return;
+  }
+
+  method void erase() {
+    var int i;
+    var Piece piece;
+
+    let i = 0;
+    while (i < nPieces) {
+      let piece = pieces[i];
+      do piece.erase();
+
+      let i = i + 1;
+    }
+
+    return;
+  }
+
+}

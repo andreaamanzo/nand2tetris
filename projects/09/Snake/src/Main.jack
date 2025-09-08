@@ -1,0 +1,15 @@
+class Main {
+  function void main() {
+    var int pieceSize, nPieces;
+    var SnakeGame game;
+
+    let pieceSize = 10;
+    let nPieces = 5;
+
+    let game = SnakeGame.new(pieceSize, nPieces);
+
+    do game.run();
+
+    return;
+  }
+}

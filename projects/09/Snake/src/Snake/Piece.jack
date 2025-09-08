@@ -1,0 +1,34 @@
+class Piece {
+
+  field int x, y;
+  field int size;
+
+  constructor Piece new(int in_size, int in_x, int in_y) {
+    let size = in_size;
+    let x = in_x;
+    let y = in_y;
+
+    return this;
+  }
+
+  method void dispose() {
+    do Memory.deAlloc(this);
+
+    return;
+  }
+
+  method void draw() {
+    do Screen.setColor(true);
+    do Screen.drawRectangle(x, y, x + size, y + size);
+
+    return;
+  }
+
+  method void erase() {
+    do Screen.setColor(false);
+    do Screen.drawRectangle(x, y, x + size, y + size);
+
+    return;
+  }
+
+}

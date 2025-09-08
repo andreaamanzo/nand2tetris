@@ -1,0 +1,28 @@
+class SnakeGame {
+  field Snake snake;
+  field int direction;
+
+  constructor SnakeGame new(int in_pieceSize, int in_nPieces) {
+    let snake = Snake.new(in_pieceSize, in_nPieces);
+    let direction = 0;
+
+    return this;
+  }
+
+  /** Disposes this game. */
+  method void dispose() {
+    do snake.dispose();
+    do Memory.deAlloc(this);
+    return;
+  }
+
+  method void run() {
+    while (true) {
+      do snake.draw();
+      do Sys.wait(1000);
+    }
+
+    return;
+  }
+  
+}
