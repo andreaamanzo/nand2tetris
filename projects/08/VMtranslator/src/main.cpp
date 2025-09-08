@@ -30,23 +30,26 @@ int main(int argc, char* argv[])
 
   if (fs::is_directory(inPath)) 
   {
-    // 1) raccogli i .vm (solo file regolari)
+    // 1) raccogli TUTTI i .vm ricorsivamente (solo file regolari)
     std::vector<fs::path> vmFiles;
-    for (const auto& entry : fs::directory_iterator(inPath)) 
+    for (const auto& entry :
+         fs::recursive_directory_iterator(inPath, fs::directory_options::skip_permission_denied))
     {
       if (!entry.is_regular_file()) continue;
-      std::string ext = entry.path().extension().string(); // ".vm"
-      if (ext == ".vm") vmFiles.push_back(entry.path());
+      if (entry.path().extension() == ".vm") vmFiles.push_back(entry.path());
     }
 
     if (vmFiles.empty()) 
     {
-      std::cerr << "No .vm files in directory: " << inPath << std::endl;
+      std::cerr << "No .vm files in directory (recursively): " << inPath << std::endl;
       return 1;
     }
 
-    // 2) ordine deterministico
-    std::sort(vmFiles.begin(), vmFiles.end());
+    // 2) ordine deterministico su path (lessicografico)
+    std::sort(vmFiles.begin(), vmFiles.end(),
+              [](const fs::path& a, const fs::path& b){
+                return a.generic_string() < b.generic_string();
+              });
 
     // 3) apri e inserisci in inputFiles
     for (const auto& p : vmFiles) 
@@ -63,7 +66,7 @@ int main(int argc, char* argv[])
       });
     }
 
-    // 4) nome output: <dir>/<dir>.asm
+    // 4) nome output: <dir>/<dir>.asm (come da specifica nand2tetris)
     outputFileName = (inPath / (
       (inPath.has_filename() ? inPath.filename() : inPath.parent_path().filename()).string() + ".asm"
     )).string();
@@ -71,8 +74,7 @@ int main(int argc, char* argv[])
   else if (fs::is_regular_file(inPath)) 
   {
     // controllo estensione
-    std::string ext = inPath.extension().string();
-    if (ext != ".vm") 
+    if (inPath.extension() != ".vm") 
     {
       std::cerr << "Input file must have a .vm extension" << std::endl;
       return 1;
@@ -109,10 +111,8 @@ int main(int argc, char* argv[])
   }
 
   Translator translator(inputFiles, outputFile);
-
   translator.translate();
 
   std::cout << "Translation completed. Output written to: " << outputFileName << std::endl;
-
   return 0;
 }
