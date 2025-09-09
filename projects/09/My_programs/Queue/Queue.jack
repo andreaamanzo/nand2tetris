@@ -8,6 +8,17 @@ class Queue {
     return this;
   }
 
+  /** Disposes this Queue. */
+  method void dispose() {
+    while (~(head = null)) {
+      do pop();
+    }
+
+    do Memory.deAlloc(this);
+    
+    return;
+  }
+
   /** Inserts an element at the end (enqueue). */
   method void push(int n) {
     var List node;

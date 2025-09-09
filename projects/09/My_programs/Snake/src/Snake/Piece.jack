@@ -17,6 +17,12 @@ class Piece {
     return;
   }
 
+  method int getX() { return x; }
+  method int getY() { return y; }
+
+  method void setX(int new_x) { let x = new_x; return; }
+  method void setY(int new_y) { let y = new_y; return; }
+
   method void draw() {
     do Screen.setColor(true);
     do Screen.drawRectangle(x, y, x + size, y + size);

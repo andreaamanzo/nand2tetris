@@ -4,11 +4,13 @@ class Main {
     var SnakeGame game;
 
     let pieceSize = 10;
-    let nPieces = 5;
+    let nPieces = 10;
 
-    let game = SnakeGame.new(pieceSize, nPieces);
+    let game = SnakeGame.new();
 
     do game.run();
+
+    do game.dispose();
 
     return;
   }

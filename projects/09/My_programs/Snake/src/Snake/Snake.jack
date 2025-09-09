@@ -1,0 +1,205 @@
+class Snake {
+  
+  field int pieceSize;
+  field int nPieces;
+  field Array pieces;
+  field boolean appleEaten;
+
+  constructor Snake new(int in_pieceSize, int in_nPieces) {
+    var int i;
+    var int posX, posY;
+
+    let pieceSize = in_pieceSize;
+    let nPieces = in_nPieces;
+    let pieces = Array.new(100); // max number of pieces
+
+    // the snake starts at (0, 0)
+    let posX = 0;
+    let posY = 0;
+
+    let i = 0;
+    while (i < nPieces) {
+      let pieces[i] = Piece.new(pieceSize, posX, posY);
+
+      let posX = posX + pieceSize;
+
+      let i = i + 1;
+    }
+
+    return this;
+  }
+
+  method void dispose() {
+    var int i;
+    var Piece piece;
+
+    let i = 0;
+    while (i < nPieces) {
+      let piece = pieces[i];
+      do piece.dispose();
+
+      let i = i + 1;
+    }
+
+    do pieces.dispose();
+    do Memory.deAlloc(this);
+
+    return;
+  }
+
+  method void reset(int new_nPieces) {
+    var int i;
+    var int posX, posY;
+    var Piece piece;
+
+    let nPieces = new_nPieces;
+    let posX = 0;
+    let posY = 0;
+
+    let i = 0;
+    while (i < nPieces) {
+      let piece = pieces[i];
+      do piece.setX(posX);
+      do piece.setY(posY);
+
+      let posX = posX + pieceSize;
+
+      let i = i + 1;
+    }
+
+    return;
+  }
+
+  method void draw() {
+    var int i;
+    var Piece piece;
+
+    let i = 0;
+    while (i < nPieces) {
+      let piece = pieces[i];
+      do piece.draw();
+
+      let i = i + 1;
+    }
+
+    return;
+  }
+
+  method void erase() {
+    var int i;
+    var Piece piece;
+
+    let i = 0;
+    while (i < nPieces) {
+      let piece = pieces[i];
+      do piece.erase();
+
+      let i = i + 1;
+    }
+
+    return;
+  }
+
+  method Piece getHead() { return pieces[nPieces - 1]; }
+
+  method boolean move(int direction) {
+    var int i;
+    var Piece piece, nextPiece, previousPiece, head;
+
+    // stop
+    if (direction = 0) {
+      return true;
+    }
+
+    if (appleEaten) {
+      let nPieces = nPieces + 1;
+
+      let previousPiece = pieces[nPieces - 2];
+      let pieces[nPieces - 1] = Piece.new(pieceSize, previousPiece.getX(), previousPiece.getY());
+
+      let i = nPieces - 2;
+      while (i > 0) {
+        let piece = pieces[i];
+        let previousPiece = pieces[i-1];
+        do piece.setX(previousPiece.getX());
+        do piece.setY(previousPiece.getY());
+
+        let i = i - 1;
+      }
+
+      let appleEaten = false;
+    }
+
+    // Controlla se la testa colpisce se stesso
+    let head = pieces[nPieces - 1];
+    let i = 0;
+    while (i < (nPieces - 1)) {
+      let piece = pieces[i];
+      if ((piece.getX() = head.getX()) & (piece.getY() = head.getY())) {
+        return false;
+      }
+      let i = i + 1;
+    }
+
+    // Sposta ogni segmento del corpo
+    let i = 0;
+    while (i < (nPieces - 1)) {
+      let piece = pieces[i];
+      let nextPiece = pieces[i+1];
+      do piece.setX(nextPiece.getX());
+      do piece.setY(nextPiece.getY());
+      
+      let i = i + 1;
+    }
+
+    // Movimento della testa
+    let head = pieces[nPieces - 1];
+
+    // right
+    if (direction = 1) {
+      if ((head.getX() + pieceSize + pieceSize) > 511) { return false; }
+      do head.setX(head.getX() + pieceSize);
+    }
+
+    // left
+    if (direction = 2) {
+      if ((head.getX() - pieceSize) < 0) { return false; }
+      do head.setX(head.getX() - pieceSize);
+    }
+
+    // up
+    if (direction = 3) {
+      if ((head.getY() - pieceSize) < 0) { return false; }
+      do head.setY(head.getY() - pieceSize);
+    }
+    
+    // down
+    if (direction = 4) {
+      if ((head.getY() + pieceSize + pieceSize) > 255) { return false; }
+      do head.setY(head.getY() + pieceSize);
+    }
+
+    return true;
+  }
+
+  method void eatApple() {
+    let appleEaten = true;
+    return;
+  }
+
+  method boolean checkHit(Piece target) {
+    var int i;
+    var Piece piece;
+
+    let i = 0;
+    while (i < (nPieces - 1)) {
+      let piece = pieces[i];
+      if ((piece.getX() = target.getX()) & (piece.getY() = target.getY())) {
+        return true;
+      }
+      let i = i + 1;
+    }
+
+    return false;
+  }
+}
