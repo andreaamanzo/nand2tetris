@@ -62,19 +62,28 @@ else
   esac
 fi
 
-# normalize OUTDIR to absolute path if provided
+# normalize OUTDIR to absolute path if provided, and pre-clean it
 if [ -n "$outdir" ]; then
   case "$outdir" in
     /*) ;;
     *)  outdir="$launcher_dir/$outdir" ;;
   esac
   mkdir -p "$outdir" || { echo "Error: cannot create OUTDIR '$outdir'"; exit 3; }
+  # clean OUTDIR contents safely (keep OUTDIR itself)
+  if ! find "$outdir" -mindepth 1 -maxdepth 1 -exec rm -rf {} + 2>/dev/null; then
+    echo "Error: failed to clean OUTDIR '$outdir'"
+    exit 3
+  fi
 fi
 
 classpath="${CLASSPATH}:bin/classes:bin/lib/Hack.jar:bin/lib/Compilers.jar"
 jackc() {
   java -classpath "$classpath" Hack.Compiler.JackCompiler "$1"
 }
+
+# counters for summary
+compiled_count=0
+moved_count=0
 
 move_vm_if_needed() {
   # $1 = source .jack absolute path
@@ -88,11 +97,11 @@ move_vm_if_needed() {
       *)  root="$arg1/" ;;
     esac
     rel="${srcjack#$root}"       # relative path (e.g. sub/dir/Foo.jack)
-    rel_dir=`dirname "$rel"`     # e.g. sub/dir
+    rel_dir=`dirname "$rel"`     # e.g. sub/dir or "."
     dest_dir="$outdir/$rel_dir"
     mkdir -p "$dest_dir" || return 1
     mv "$vm_src" "$dest_dir/" || return 1
-    echo "→ Moved: $vm_src -> $dest_dir/"
+    moved_count=$((moved_count + 1))
   fi
 }
 
@@ -101,17 +110,28 @@ echo "Compiling '$arg1'"
 if [ -f "$arg1" ]; then
   # Single file
   jackc "$arg1" || exit $?
+  compiled_count=$((compiled_count + 1))
   move_vm_if_needed "$arg1"
+  echo "Done. Compiled $compiled_count file(s)."
+  [ -n "$outdir" ] && echo "Collected $moved_count .vm file(s) into: $outdir"
   exit 0
 fi
 
 if [ -d "$arg1" ]; then
-  # Directory: recurse and compile each .jack
-  find "$arg1" -type f -name '*.jack' | while IFS= read -r jackfile; do
-    echo " - $jackfile"
-    jackc "$jackfile" || exit $?
-    move_vm_if_needed "$jackfile" || exit $?
-  done
+  # Directory: list .jack files first (avoid pipeline subshell to keep counters)
+  tmp_list=`mktemp 2>/dev/null || echo "/tmp/jacklist.$$"`
+  find "$arg1" -type f -name '*.jack' > "$tmp_list"
+
+  while IFS= read -r jackfile; do
+    [ -z "$jackfile" ] && continue
+    jackc "$jackfile" || { rm -f "$tmp_list"; exit $?; }
+    compiled_count=$((compiled_count + 1))
+    move_vm_if_needed "$jackfile" || { rm -f "$tmp_list"; exit $?; }
+  done < "$tmp_list"
+  rm -f "$tmp_list"
+
+  echo "Done. Compiled $compiled_count file(s)."
+  [ -n "$outdir" ] && echo "Collected $moved_count .vm file(s) into: $outdir"
   exit 0
 fi
 
