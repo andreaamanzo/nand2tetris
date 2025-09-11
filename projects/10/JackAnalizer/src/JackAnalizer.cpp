@@ -1,7 +1,7 @@
 #include <string>
 #include <filesystem>
 #include <iostream>
-#include "IOFiles.h"
+#include "InputFile.h"
 #include "TokenType.h"
 #include "KeyWords.h"
 #include "JackAnalizer.h"
@@ -42,7 +42,8 @@ void JackAnalizer::analize()
     // Process the input file and write to the respective output files
 
     std::cout << inputFile.fileName << ".jack: \n";
-    // 1) Tokenizer
+
+    // ----- 1) Tokenizer -----
 
     JackTokenizer tokenizer(inputFile);
 
@@ -106,6 +107,8 @@ void JackAnalizer::analize()
 
     std::cout << "Tokenization completed\n";
 
+    // ----- 2) Parser -----
+
     // Restore the stream and return to the beginning of the file
     inputFile.file.clear();
     inputFile.file.seekg(0, std::ios::beg);
@@ -113,6 +116,7 @@ void JackAnalizer::analize()
     CompilationEngine compilationEngine(inputFile, xmlOutputFile);
 
     compilationEngine.compile();
+    
     std::cout << "Parsing completed\n\n";
   }
 }

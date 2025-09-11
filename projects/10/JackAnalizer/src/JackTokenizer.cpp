@@ -3,7 +3,7 @@
 #include <fstream>
 #include <algorithm>
 #include <stdexcept>
-#include "IOFiles.h"
+#include "InputFile.h"
 #include "TokenType.h"
 #include "KeyWords.h"
 #include "JackTokenizer.h"

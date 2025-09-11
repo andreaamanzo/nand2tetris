@@ -2,7 +2,7 @@
 #include <string>
 #include <algorithm>
 #include <initializer_list>
-#include "IOFiles.h"
+#include "InputFile.h"
 #include "CompilationEngine.h"
 #include "JackTokenizer.h"
 #include "TokenType.h"
@@ -38,6 +38,18 @@ void CompilationEngine::advanceOrError()
   }
 
   m_tokenizer.advance();
+}
+
+bool CompilationEngine::isOperator() 
+{
+  if (m_tokenizer.tokenType() != TokenType::SYMBOL) return false;
+  switch (m_tokenizer.symbol()) {
+    case '+': case '-': case '*': case '/':
+    case '&': case '|': case '<': case '>': case '=':
+      return true;
+    default:
+      return false;
+  }
 }
 
 // ------- EXPECT HELPERS -------
@@ -112,6 +124,28 @@ void CompilationEngine::expectKeywordOneOf(std::initializer_list<KeyWords::KeyWo
     }
 }
 
+void CompilationEngine::expectIntConst()
+{
+  if (m_tokenizer.tokenType() != TokenType::INT_CONST) 
+  {
+    throw CompilationError(
+      m_fileName, m_tokenizer.tokenLineIdx(),
+      "Expected integer constant"
+    );
+  }
+}
+
+void CompilationEngine::expectStringConst()
+{
+  if (m_tokenizer.tokenType() != TokenType::STRING_CONST) 
+  {
+    throw CompilationError(
+      m_fileName, m_tokenizer.tokenLineIdx(),
+      "Expected string constant"
+    );
+  }
+}
+
 void CompilationEngine::expectType(bool voidOption /*= false*/)
 {
   if (m_tokenizer.tokenType() == TokenType::KEYWORD) {
@@ -133,6 +167,29 @@ void CompilationEngine::expectType(bool voidOption /*= false*/)
   if (voidOption) msg += ", 'void'";
   msg += " or class name)";
   throw CompilationError(m_fileName, m_tokenizer.tokenLineIdx(), msg);
+}
+
+void CompilationEngine::expectOperator()
+{
+  if (!isOperator()) 
+  {
+    throw CompilationError(
+      m_fileName, m_tokenizer.tokenLineIdx(),
+      "Expected operator ('+' '-' '*' '/' '&' '|' '<' '>' '=')"
+    );
+  }
+}
+
+void CompilationEngine::expectUnaryOperator()
+{
+  if ((m_tokenizer.tokenType() != TokenType::SYMBOL) ||
+      (m_tokenizer.symbol() != '-' && m_tokenizer.symbol() != '~')) 
+  {
+    throw CompilationError(
+      m_fileName, m_tokenizer.tokenLineIdx(),
+      "Expected unary operator ('-' or '~')"
+    );
+  }
 }
 
 // ------- HANDLERS (expect + write + advance) -------
@@ -172,6 +229,20 @@ void CompilationEngine::handleIdentifierOneOf(std::initializer_list<Identifiers:
   advanceOrError();
 }
 
+void CompilationEngine::handleIntConst()
+{
+  expectIntConst();
+  m_outputFile << "<integerConstant> " << m_tokenizer.intVal() << " </integerConstant>\n";
+  advanceOrError();
+}
+
+void CompilationEngine::handleStringConst()
+{
+  expectStringConst();
+  m_outputFile << "<stringConstant> " << m_tokenizer.stringVal() << " </stringConstant>\n";
+  advanceOrError();
+}
+
 void CompilationEngine::handleType(bool voidOption /*= false*/)
 {
   expectType(voidOption);
@@ -180,6 +251,20 @@ void CompilationEngine::handleType(bool voidOption /*= false*/)
   } else {
     m_outputFile << "<identifier> " << m_tokenizer.identifier() << " </identifier>\n";
   }
+  advanceOrError();
+}
+
+void CompilationEngine::handleOperator()
+{
+  expectOperator();
+  m_outputFile << "<symbol> " << xmlEscape(m_tokenizer.symbol()) << " </symbol>\n";
+  advanceOrError();
+}
+
+void CompilationEngine::handleUnaryOperator()
+{
+  expectUnaryOperator();
+  m_outputFile << "<symbol> " << xmlEscape(m_tokenizer.symbol()) << " </symbol>\n";
   advanceOrError();
 }
 
@@ -478,7 +563,12 @@ void CompilationEngine::compileExpression()
 
   compileTerm();
 
-  //TODO (op term)*
+  while (isOperator())
+  {
+    handleOperator();
+
+    compileTerm();
+  }
 
   m_outputFile << "</expression>\n";
 }
@@ -487,10 +577,44 @@ void CompilationEngine::compileTerm()
 {
   m_outputFile << "<term>\n";
 
+  // VarName | VarName[expression] | Subroutine call
   if (m_tokenizer.tokenType() == TokenType::IDENTIFIER) 
   {
-    handleIdentifier(Identifiers::Identifier::VAR);
+    handleIdentifierOneOf({Identifiers::Identifier::SUBROUTINE, 
+                           Identifiers::Identifier::CLASS, 
+                           Identifiers::Identifier::VAR});
+                            
+    // Subroutine call: (className | varName).subroutineName(expressionList) 
+    if (m_tokenizer.tokenType() == TokenType::SYMBOL && m_tokenizer.symbol() == '.')
+    {
+      handleSymbol('.');
+      handleIdentifier(Identifiers::Identifier::SUBROUTINE);
+      handleSymbol('(');
+
+      compileExpressionList();
+
+      handleSymbol(')');
+    }
+    // Subroutine call: subroutineName(expressionList)                      
+    else if ((m_tokenizer.tokenType() == TokenType::SYMBOL) && (m_tokenizer.symbol() == '('))  
+    {
+      handleSymbol('(');
+
+      compileExpressionList();
+
+      handleSymbol(')');
+    }                  
+    // VarName[expression]
+    else if (m_tokenizer.tokenType() == TokenType::SYMBOL && m_tokenizer.symbol() == '[')
+    {
+      handleSymbol('[');
+
+      compileExpression();
+
+      handleSymbol(']');
+    }
   }
+  // Keyword constant
   else if ((m_tokenizer.tokenType() == TokenType::KEYWORD) &&
            (m_tokenizer.keyWord() == KeyWords::KeyWord::TRUE  ||
             m_tokenizer.keyWord() == KeyWords::KeyWord::FALSE ||
@@ -499,8 +623,41 @@ void CompilationEngine::compileTerm()
   {
     handleKeywordOneOf({KeyWords::KeyWord::TRUE, KeyWords::KeyWord::FALSE, KeyWords::KeyWord::NULL_, KeyWords::KeyWord::THIS});
   }
+  // Unary op + term
+  else if ((m_tokenizer.tokenType() == TokenType::SYMBOL) &&
+           (m_tokenizer.symbol() == '-' || m_tokenizer.symbol() == '~'))
+  {
+    handleUnaryOperator();
 
-  //TODO complete
+    compileTerm();
+  }
+  // (expression)
+  else if ((m_tokenizer.tokenType() == TokenType::SYMBOL) && (m_tokenizer.symbol() == '('))
+  {
+    handleSymbol('(');
+
+    compileExpression();
+
+    handleSymbol(')');
+  }
+  // Integer constant
+  else if (m_tokenizer.tokenType() == TokenType::INT_CONST)
+  {
+    handleIntConst();
+  }
+  // String constant
+  else if (m_tokenizer.tokenType() == TokenType::STRING_CONST)
+  {
+    handleStringConst();
+  }
+  else 
+  {
+    throw CompilationError(
+      m_fileName, m_tokenizer.tokenLineIdx(),
+      "Expected an identifier, a keyword constant ('true','false','null','this'), "
+      "an integer constant, a string constant, '(', '-' or '~'"
+    );
+  }
 
   m_outputFile << "</term>\n";
 }

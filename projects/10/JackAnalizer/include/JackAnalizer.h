@@ -3,7 +3,7 @@
 
 #include <string>
 #include <filesystem>
-#include "IOFiles.h"
+#include "InputFile.h"
 
 namespace fs = std::filesystem;
 

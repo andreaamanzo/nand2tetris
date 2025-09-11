@@ -6,7 +6,7 @@
 #include <string>
 #include "TokenType.h"
 #include "KeyWords.h"
-#include "IOFiles.h"
+#include "InputFile.h"
 
 class JackTokenizer
 {

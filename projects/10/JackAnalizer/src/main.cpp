@@ -5,7 +5,7 @@
 #include <cctype>
 #include <filesystem>
 #include <algorithm>
-#include "IOFiles.h"
+#include "InputFile.h"
 #include "JackAnalizer.h"
 #include "CompilationError.h"
 

@@ -1,5 +1,5 @@
-#ifndef IOFILES_H
-#define IOFILES_H
+#ifndef INPUTFILE_H
+#define INPUTFILE_H
 
 #include <fstream>
 #include <string>
@@ -11,13 +11,6 @@ struct InputFile
   std::ifstream file;
 };
 
-struct OutputFile
-{
-  std::string fileName;
-  std::ofstream file;
-};
-
 typedef std::vector<InputFile> InputFiles;
-typedef std::vector<OutputFile> OutputFiles;
 
 #endif
