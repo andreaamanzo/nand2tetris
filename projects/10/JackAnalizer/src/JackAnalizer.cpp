@@ -1,10 +1,12 @@
 #include <string>
 #include <filesystem>
+#include <iostream>
 #include "IOFiles.h"
 #include "TokenType.h"
 #include "KeyWords.h"
 #include "JackAnalizer.h"
 #include "JackTokenizer.h"
+#include "CompilationEngine.h"
 
 namespace fs = std::filesystem;
 
@@ -39,6 +41,7 @@ void JackAnalizer::analize()
 
     // Process the input file and write to the respective output files
 
+    std::cout << inputFile.fileName << ".jack: \n";
     // 1) Tokenizer
 
     JackTokenizer tokenizer(inputFile);
@@ -94,15 +97,22 @@ void JackAnalizer::analize()
         }
         default:
         {
-          throw std::runtime_error("Unknown token type");
+          throw std::logic_error("Unknown token type");
         }        
       }
     }
 
     xmlTOutputFile << "</tokens>\n";
 
+    std::cout << "Tokenization completed\n";
 
-    //TODO 2) Parser
-    
+    // Restore the stream and return to the beginning of the file
+    inputFile.file.clear();
+    inputFile.file.seekg(0, std::ios::beg);
+
+    CompilationEngine compilationEngine(inputFile, xmlOutputFile);
+
+    compilationEngine.compile();
+    std::cout << "Parsing completed\n\n";
   }
 }

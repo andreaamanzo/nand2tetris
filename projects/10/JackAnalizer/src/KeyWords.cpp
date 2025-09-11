@@ -4,33 +4,33 @@
 #include "KeyWords.h"
 
 std::string KeyWords::to_string(KeyWord keyword)
+{
+  switch (keyword)
   {
-    switch (keyword)
-    {
-      case KeyWord::CLASS:       return "class";
-      case KeyWord::METHOD:      return "method";
-      case KeyWord::FUNCTION:    return "function";
-      case KeyWord::CONSTRUCTOR: return "constructor";
-      case KeyWord::INT:         return "int";
-      case KeyWord::BOOLEAN:     return "boolean";
-      case KeyWord::CHAR:        return "char";
-      case KeyWord::VOID:        return "void";
-      case KeyWord::VAR:         return "var";
-      case KeyWord::STATIC:      return "static";
-      case KeyWord::FIELD:       return "field";
-      case KeyWord::LET:         return "let";
-      case KeyWord::DO:          return "do";
-      case KeyWord::IF:          return "if";
-      case KeyWord::ELSE:        return "else";
-      case KeyWord::WHILE:       return "while";
-      case KeyWord::RETURN:      return "return";
-      case KeyWord::TRUE:        return "true";
-      case KeyWord::FALSE:       return "false";
-      case KeyWord::NULL_:       return "null";
-      case KeyWord::THIS:        return "this";
-      default:                   return ""; // Should not reach here
-    }
+    case KeyWord::CLASS:       return "class";
+    case KeyWord::METHOD:      return "method";
+    case KeyWord::FUNCTION:    return "function";
+    case KeyWord::CONSTRUCTOR: return "constructor";
+    case KeyWord::INT:         return "int";
+    case KeyWord::BOOLEAN:     return "boolean";
+    case KeyWord::CHAR:        return "char";
+    case KeyWord::VOID:        return "void";
+    case KeyWord::VAR:         return "var";
+    case KeyWord::STATIC:      return "static";
+    case KeyWord::FIELD:       return "field";
+    case KeyWord::LET:         return "let";
+    case KeyWord::DO:          return "do";
+    case KeyWord::IF:          return "if";
+    case KeyWord::ELSE:        return "else";
+    case KeyWord::WHILE:       return "while";
+    case KeyWord::RETURN:      return "return";
+    case KeyWord::TRUE:        return "true";
+    case KeyWord::FALSE:       return "false";
+    case KeyWord::NULL_:       return "null";
+    case KeyWord::THIS:        return "this";
+    default:                   return ""; // Should not reach here
   }
+}
 
   // Function to map strings to KeyWords
   KeyWords::KeyWord KeyWords::fromString(const std::string& token)

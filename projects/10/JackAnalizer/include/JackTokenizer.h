@@ -30,6 +30,7 @@ public:
 
   bool hasMoreTokens();
   void advance();
+  int tokenLineIdx();
   TokenType tokenType();
   KeyWords::KeyWord keyWord();
   char symbol();

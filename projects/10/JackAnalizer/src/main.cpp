@@ -7,6 +7,7 @@
 #include <algorithm>
 #include "IOFiles.h"
 #include "JackAnalizer.h"
+#include "CompilationError.h"
 
 namespace fs = std::filesystem;
 
@@ -122,7 +123,7 @@ int main(int argc, char* argv[])
   {
     jackAnalizer.analize();
   }
-  catch (const std::runtime_error& e) 
+  catch (const CompilationError& e) 
   {
     std::cerr << "Compilation failed:\n  " << e.what() << std::endl;
     return 1;

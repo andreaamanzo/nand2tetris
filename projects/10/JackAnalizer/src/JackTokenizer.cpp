@@ -7,6 +7,7 @@
 #include "TokenType.h"
 #include "KeyWords.h"
 #include "JackTokenizer.h"
+#include "CompilationError.h"
 
 JackTokenizer::JackTokenizer(InputFile& inputFile)
   : m_fileName(inputFile.fileName + ".jack")
@@ -20,7 +21,7 @@ std::vector<JackTokenizer::Token> JackTokenizer::tokenizeFile(std::ifstream& fil
 {
   std::vector<JackTokenizer::Token> tokenizedFile;
   std::string line{};
-  int lineIdx{ -1 };
+  int lineIdx{ 0 };
   
   // Define symbols to split on
   const std::string symbols = "{}()[],.;+-*/&|<>=~";
@@ -111,8 +112,7 @@ std::vector<JackTokenizer::Token> JackTokenizer::tokenizeFile(std::ifstream& fil
         // Handle cases where the string is not properly terminated
         if (end == std::string::npos) 
         {
-          throw std::runtime_error("Error in file " + m_fileName + " at line " + std::to_string(lineIdx) + ": "
-                                   "Unterminated string constant");
+          throw CompilationError(m_fileName, lineIdx, "Unterminated string constant");
         }
 
         JackTokenizer::Token token{
@@ -168,6 +168,11 @@ void JackTokenizer::advance()
   }
 }
 
+int JackTokenizer::tokenLineIdx()
+{
+  return m_currentToken.lineIdx;
+}
+
 TokenType JackTokenizer::tokenType()
 {
   const std::string symbols = "{}()[],.;+-*/&|<>=~";
@@ -207,8 +212,7 @@ TokenType JackTokenizer::tokenType()
     return TokenType::IDENTIFIER;
   }
 
-  throw std::runtime_error("Error in file " + m_fileName + " at line " + std::to_string(lineIdx) + ": "
-                           "Unknown or invalid token: " + token);
+  throw CompilationError(m_fileName, lineIdx, "Unknown or invalid token: " + token);
 }
 
 KeyWords::KeyWord JackTokenizer::keyWord()

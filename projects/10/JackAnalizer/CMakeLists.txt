@@ -13,6 +13,8 @@ set(SOURCES
     src/JackAnalizer.cpp
     src/JackTokenizer.cpp
     src/KeyWords.cpp
+    src/CompiletionError.cpp
+    src/Identifiers.cpp
 )
 
 # Crea l'eseguibile
