@@ -1,0 +1,4 @@
+*.hack linguist-vendored
+*.cmp linguist-vendored
+*.tst linguist-vendored
+*.html linguist-vendored
