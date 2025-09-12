@@ -6,3 +6,4 @@ projects/08/**/*.asm linguist-generated
 *.tst linguist-vendored
 projects/06/**/*.asm linguist-vendored
 tools/** linguist-vendored
+!tools/JackCompiler2.sh linguist-vendored
