@@ -26,6 +26,3 @@ Testing/
 *.app
 *.out
 *.log
-
-# .hack
-**/*.hack
