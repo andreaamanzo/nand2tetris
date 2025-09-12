@@ -4,4 +4,5 @@ projects/08/**/*.asm linguist-generated
 
 *.cmp linguist-vendored
 *.tst linguist-vendored
+projects/06/**/*.asm linguist-vendored
 tools/** linguist-vendored
