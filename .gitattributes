@@ -1,4 +1,7 @@
-*.hack linguist-vendored
+*.hack linguist-generated
+projects/07/**/*.asm linguist-generated
+projects/08/**/*.asm linguist-generated
+
 *.cmp linguist-vendored
 *.tst linguist-vendored
-*.html linguist-vendored
+tools/** linguist-vendored
