@@ -1,0 +1,41 @@
+function Main.main 0
+push constant 1
+push constant 2
+push constant 3
+call Math.multiply 2
+add
+call Output.printInt 1
+pop temp 0
+push constant 0
+return
+function Main.foo 0
+push constant 1
+call Output.printInt 1
+pop temp 0
+push constant 0
+return
+function Main.bar 0
+push argument 0
+pop pointer 0
+call Main.foo 0
+pop temp 0
+push constant 3
+call String.new 1
+push constant 101
+call String.appendChar 2
+push constant 102
+call String.appendChar 2
+push constant 102
+call String.appendChar 2
+return
+function Main.bar2 2
+push argument 0
+pop pointer 0
+push pointer 0
+call Main.bar 1
+pop local 0
+push pointer 0
+call Main.foo 1
+pop temp 0
+push constant 0
+return
