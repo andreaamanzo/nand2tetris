@@ -23,20 +23,20 @@ private:
   int m_currentTokenIndex{ -1 };
   Token m_currentToken{};
   
-  std::vector<Token> tokenizeFile(std::ifstream& file);
+  std::vector<Token> tokenizeFile(std::ifstream& file) const;
 
 public:
   JackTokenizer(InputFile& inputFile);
 
-  bool hasMoreTokens();
-  void advance();
-  int tokenLineIdx();
-  TokenType tokenType();
-  KeyWords::KeyWord keyWord();
-  char symbol();
-  std::string identifier();
-  int intVal();
-  std::string stringVal();
+  bool hasMoreTokens() const noexcept;
+  void advance() noexcept;
+  int tokenLineIdx() const noexcept;
+  TokenType tokenType() const;
+  KeyWords::KeyWord keyWord() const;
+  char symbol() const;
+  std::string identifier() const;
+  int intVal() const;
+  std::string stringVal() const;
 };
 
 #endif

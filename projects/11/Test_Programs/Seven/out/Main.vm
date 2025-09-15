@@ -34,8 +34,7 @@ pop pointer 0
 push pointer 0
 call Main.bar 1
 pop local 0
-push pointer 0
-call Main.foo 1
+call Main.foo 0
 pop temp 0
 push constant 0
 return

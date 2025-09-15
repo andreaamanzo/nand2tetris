@@ -3,14 +3,15 @@
 #include "utils/Identifiers.h"
 #include "compiler/SymbolTable.h"
 
-const Identifiers::Symbol* SymbolTable::findSymbol(const std::string& name) const noexcept {
-    if (auto it = m_subroutineScopeTable.find(name); it != m_subroutineScopeTable.end())
-        return &it->second;
+const Identifiers::Symbol* SymbolTable::findSymbol(const std::string& name) const noexcept 
+{
+  if (auto it = m_subroutineScopeTable.find(name); it != m_subroutineScopeTable.end())
+    return &it->second;
 
-    if (auto it = m_classScopeTable.find(name); it != m_classScopeTable.end())
-        return &it->second;
+  if (auto it = m_classScopeTable.find(name); it != m_classScopeTable.end())
+    return &it->second;
 
-    return nullptr;
+  return nullptr;
 }
 
 void SymbolTable::startSubroutine() noexcept
@@ -26,7 +27,7 @@ void SymbolTable::define(const std::string& name, const std::string& type, Ident
 
   if (table.contains(name)) 
   {
-    throw std::logic_error("Symbol '" + name + "' already defined in this scope");
+    throw std::logic_error("SymbolTable::define(): Symbol '" + name + "' already defined in this scope");
   }
 
   int index = { varCount(kind) };
@@ -36,6 +37,7 @@ void SymbolTable::define(const std::string& name, const std::string& type, Ident
   case Identifiers::VarKind::FIELD:  {++m_fieldCount;  break;}
   case Identifiers::VarKind::ARG:    {++m_argCount;    break;}
   case Identifiers::VarKind::VAR:    {++m_varCount;    break;}
+  default: throw std::invalid_argument("SymbolTable::define(): Invalid kind parameter (Identifiers::VarKind::NONE)");
   }
 
   Identifiers::Symbol newSymbol{ name, type, kind, index };

@@ -17,7 +17,7 @@ JackTokenizer::JackTokenizer(InputFile& inputFile)
 {
 }
 
-std::vector<JackTokenizer::Token> JackTokenizer::tokenizeFile(std::ifstream& file)
+std::vector<JackTokenizer::Token> JackTokenizer::tokenizeFile(std::ifstream& file) const
 {
   std::vector<JackTokenizer::Token> tokenizedFile;
   std::string line{};
@@ -146,12 +146,12 @@ std::vector<JackTokenizer::Token> JackTokenizer::tokenizeFile(std::ifstream& fil
   return tokenizedFile;
 }
 
-bool JackTokenizer::hasMoreTokens()
+bool JackTokenizer::hasMoreTokens() const noexcept
 {
   return m_hasMoreTokens;
 }
 
-void JackTokenizer::advance()
+void JackTokenizer::advance() noexcept
 {
   if (!m_hasMoreTokens)
   {
@@ -168,12 +168,12 @@ void JackTokenizer::advance()
   }
 }
 
-int JackTokenizer::tokenLineIdx()
+int JackTokenizer::tokenLineIdx() const noexcept
 {
   return m_currentToken.lineIdx;
 }
 
-TokenType JackTokenizer::tokenType()
+TokenType JackTokenizer::tokenType() const
 {
   const std::string symbols = "{}()[],.;+-*/&|<>=~";
 
@@ -215,7 +215,7 @@ TokenType JackTokenizer::tokenType()
   throw CompilationError(m_fileName, lineIdx, "Unknown or invalid token: " + token);
 }
 
-KeyWords::KeyWord JackTokenizer::keyWord()
+KeyWords::KeyWord JackTokenizer::keyWord() const
 {
   if (tokenType() != TokenType::KEYWORD)
   {
@@ -226,7 +226,7 @@ KeyWords::KeyWord JackTokenizer::keyWord()
   return KeyWords::fromString(m_currentToken.token);
 }
 
-char JackTokenizer::symbol()
+char JackTokenizer::symbol() const
 {
   if (tokenType() != TokenType::SYMBOL)
   {
@@ -237,7 +237,7 @@ char JackTokenizer::symbol()
   return m_currentToken.token[0];
 }
 
-std::string JackTokenizer::identifier()
+std::string JackTokenizer::identifier() const
 {
   if (tokenType() != TokenType::IDENTIFIER)
   {
@@ -248,7 +248,7 @@ std::string JackTokenizer::identifier()
   return m_currentToken.token;
 }
 
-int JackTokenizer::intVal()
+int JackTokenizer::intVal() const
 {
   if (tokenType() != TokenType::INT_CONST)
   {
@@ -259,7 +259,7 @@ int JackTokenizer::intVal()
   return std::stoi(m_currentToken.token);
 }
 
-std::string JackTokenizer::stringVal()
+std::string JackTokenizer::stringVal() const
 {
   if (tokenType() != TokenType::STRING_CONST)
   {

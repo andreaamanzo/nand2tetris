@@ -29,8 +29,8 @@ public:
   void define(const std::string& name, const std::string& type, Identifiers::VarKind kind);
   int varCount(Identifiers::VarKind kind) const noexcept;
 
-  Identifiers::VarKind kindOf(const std::string& name)  const noexcept;
-  std::string typeOf(const std::string& name)  const;
+  Identifiers::VarKind kindOf(const std::string& name) const noexcept;
+  std::string typeOf(const std::string& name) const;
   int indexOf(const std::string& name) const;
 };
 

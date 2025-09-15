@@ -1,7 +1,6 @@
 #include <fstream>
 #include <string>
 #include <algorithm>
-#include <iostream>
 #include <initializer_list>
 #include "utils/InputFile.h"
 #include "utils/TokenType.h"
@@ -10,12 +9,15 @@
 #include "utils/CompilationError.h"
 #include "utils/VM.h"
 #include "compiler/JackTokenizer.h"
+#include "compiler/SymbolTable.h"
+#include "compiler/VMWriter.h"
 #include "compiler/CompilationEngine.h"
 
 CompilationEngine::CompilationEngine(InputFile& inputFile, std::ofstream& outputFile)
   : m_fileName(inputFile.fileName + ".jack")
   , m_writer(outputFile)
   , m_tokenizer(inputFile)
+  , m_symbolTable()
 {
 }
 
@@ -29,7 +31,7 @@ void CompilationEngine::advanceOrError()
   m_tokenizer.advance();
 }
 
-bool CompilationEngine::isOperator() 
+bool CompilationEngine::isOperator() const noexcept
 {
   if (m_tokenizer.tokenType() != TokenType::SYMBOL) return false;
   switch (m_tokenizer.symbol()) {
@@ -41,9 +43,26 @@ bool CompilationEngine::isOperator()
   }
 }
 
+void CompilationEngine::tryDefine(const std::string& name, const std::string& type, Identifiers::VarKind kind)
+{
+  try 
+  { 
+    m_symbolTable.define(name, type, kind); 
+  } 
+  catch (const std::logic_error& e) 
+  {
+    throw CompilationError(m_fileName, m_tokenizer.tokenLineIdx(), e.what());
+  }
+}
+
+std::string CompilationEngine::getNewLabel()
+{
+  return (m_className + "_" + std::to_string(m_labelIdx++));
+}
+
 // ------- EXPECT HELPERS -------
 
-void CompilationEngine::expectIdentifier(Identifiers::Category identifierCategory)
+void CompilationEngine::expectIdentifier(Identifiers::Category identifierCategory) const
 {
   if (m_tokenizer.tokenType() != TokenType::IDENTIFIER) 
   {
@@ -54,7 +73,7 @@ void CompilationEngine::expectIdentifier(Identifiers::Category identifierCategor
   }
 }
 
-void CompilationEngine::expectIdentifierOneOf(std::initializer_list<Identifiers::Category> allowed)
+void CompilationEngine::expectIdentifierOneOf(std::initializer_list<Identifiers::Category> allowed) const
 {
   if (m_tokenizer.tokenType() != TokenType::IDENTIFIER) {
     std::string msg = "Expected ";
@@ -69,7 +88,7 @@ void CompilationEngine::expectIdentifierOneOf(std::initializer_list<Identifiers:
   }
 }
 
-void CompilationEngine::expectSymbol(char symbol)
+void CompilationEngine::expectSymbol(char symbol) const
 {
   if (m_tokenizer.tokenType() != TokenType::SYMBOL || m_tokenizer.symbol() != symbol) 
   {
@@ -80,7 +99,7 @@ void CompilationEngine::expectSymbol(char symbol)
   }
 }
 
-void CompilationEngine::expectKeyword(KeyWords::KeyWord keyWord)
+void CompilationEngine::expectKeyword(KeyWords::KeyWord keyWord) const
 {
   if (m_tokenizer.tokenType() != TokenType::KEYWORD || m_tokenizer.keyWord() != keyWord) 
   {
@@ -91,7 +110,7 @@ void CompilationEngine::expectKeyword(KeyWords::KeyWord keyWord)
   }
 }
 
-void CompilationEngine::expectKeywordOneOf(std::initializer_list<KeyWords::KeyWord> allowed)
+void CompilationEngine::expectKeywordOneOf(std::initializer_list<KeyWords::KeyWord> allowed) const
 {
     if (m_tokenizer.tokenType() != TokenType::KEYWORD) {
         throw CompilationError(m_fileName, m_tokenizer.tokenLineIdx(), "Expected a keyword");
@@ -113,7 +132,7 @@ void CompilationEngine::expectKeywordOneOf(std::initializer_list<KeyWords::KeyWo
     }
 }
 
-void CompilationEngine::expectIntConst()
+void CompilationEngine::expectIntConst() const
 {
   if (m_tokenizer.tokenType() != TokenType::INT_CONST) 
   {
@@ -124,7 +143,7 @@ void CompilationEngine::expectIntConst()
   }
 }
 
-void CompilationEngine::expectStringConst()
+void CompilationEngine::expectStringConst() const
 {
   if (m_tokenizer.tokenType() != TokenType::STRING_CONST) 
   {
@@ -135,7 +154,7 @@ void CompilationEngine::expectStringConst()
   }
 }
 
-void CompilationEngine::expectType(bool voidOption /*= false*/)
+void CompilationEngine::expectType(bool voidOption /*= false*/) const
 {
   if (m_tokenizer.tokenType() == TokenType::KEYWORD) {
     auto kw = m_tokenizer.keyWord();
@@ -158,7 +177,7 @@ void CompilationEngine::expectType(bool voidOption /*= false*/)
   throw CompilationError(m_fileName, m_tokenizer.tokenLineIdx(), msg);
 }
 
-void CompilationEngine::expectOperator()
+void CompilationEngine::expectOperator() const
 {
   if (!isOperator()) 
   {
@@ -169,7 +188,7 @@ void CompilationEngine::expectOperator()
   }
 }
 
-void CompilationEngine::expectUnaryOperator()
+void CompilationEngine::expectUnaryOperator() const
 {
   if ((m_tokenizer.tokenType() != TokenType::SYMBOL) ||
       (m_tokenizer.symbol() != '-' && m_tokenizer.symbol() != '~')) 
@@ -189,26 +208,88 @@ void CompilationEngine::handleSymbol(char symbol)
   advanceOrError();
 }
 
-void CompilationEngine::handleKeyword(KeyWords::KeyWord keyWord)
+KeyWords::KeyWord CompilationEngine::handleKeyword(KeyWords::KeyWord keyWord)
 {
   expectKeyword(keyWord);
+  KeyWords::KeyWord kw{ m_tokenizer.keyWord() };
   advanceOrError();
+  return kw;
 }
 
-void CompilationEngine::handleKeywordOneOf(std::initializer_list<KeyWords::KeyWord> allowed)
+KeyWords::KeyWord CompilationEngine::handleKeywordOneOf(std::initializer_list<KeyWords::KeyWord> allowed)
 {
   expectKeywordOneOf(allowed);
+  KeyWords::KeyWord kw{ m_tokenizer.keyWord() };
   advanceOrError();
+  return kw;
 }
+
+std::string CompilationEngine::handleIdentifier(Identifiers::Category identifierCategory)
+{
+  expectIdentifier(identifierCategory);
+  std::string name{ m_tokenizer.identifier() };
+  advanceOrError();
+  return name;
+}
+
+std::string CompilationEngine::handleIdentifierOneOf(std::initializer_list<Identifiers::Category> allowed)
+{
+  expectIdentifierOneOf(allowed);
+  std::string name{ m_tokenizer.identifier() };
+  advanceOrError();
+  return name;
+}
+
+int CompilationEngine::handleIntConst()
+{
+  expectIntConst();
+  int val{ m_tokenizer.intVal() };
+  advanceOrError();
+  return val;
+}
+
+std::string CompilationEngine::handleStringConst()
+{
+  expectStringConst();
+  std::string s{ m_tokenizer.stringVal() };
+  advanceOrError();
+  return s;
+}
+
+std::string CompilationEngine::handleType(bool voidOption /*= false*/)
+{
+  expectType(voidOption);
+  std::string type{
+    m_tokenizer.tokenType() == TokenType::KEYWORD ? KeyWords::to_string(m_tokenizer.keyWord()) :
+                                                    m_tokenizer.identifier()
+  };
+  advanceOrError();
+  return type;
+}
+
+char CompilationEngine::handleOperator()
+{
+  expectOperator();
+  char op{ m_tokenizer.symbol() };
+  advanceOrError();
+  return op;
+}
+
+char CompilationEngine::handleUnaryOperator()
+{
+  expectUnaryOperator();
+  char op{ m_tokenizer.symbol() };
+  advanceOrError();
+  return op;
+}
+
 // ------- PARSER -------
 
 void CompilationEngine::compileClass()
 {
   handleKeyword(KeyWords::KeyWord::CLASS);
   
-  expectIdentifier(Identifiers::Category::CLASS);
-  m_className = m_tokenizer.identifier();
-  advanceOrError();
+  m_className = handleIdentifier(Identifiers::Category::CLASS);
 
   handleSymbol('{');
 
@@ -233,41 +314,23 @@ void CompilationEngine::compileClass()
 
 void CompilationEngine::compileClassVarDec()
 {
-  expectKeywordOneOf({KeyWords::KeyWord::FIELD, KeyWords::KeyWord::STATIC});
+  KeyWords::KeyWord kw{ 
+    handleKeywordOneOf({KeyWords::KeyWord::FIELD, KeyWords::KeyWord::STATIC}) 
+  };
   Identifiers::VarKind kind{ 
-    m_tokenizer.keyWord() == KeyWords::KeyWord::FIELD ? Identifiers::VarKind::FIELD : 
-                                                        Identifiers::VarKind::STATIC
+    kw == KeyWords::KeyWord::FIELD ? Identifiers::VarKind::FIELD : 
+                                     Identifiers::VarKind::STATIC
   };
-  advanceOrError();
-
-  expectType();
-  std::string type{
-    m_tokenizer.tokenType() == TokenType::KEYWORD ? KeyWords::to_string(m_tokenizer.keyWord()) :
-                                                    m_tokenizer.identifier()
-  };
-  advanceOrError();
-
-  auto declare = [&](const std::string& n)
-  {
-    try { m_symbolTable.define(n, type, kind); } 
-    catch (const std::logic_error& e) {
-      throw CompilationError(m_fileName, m_tokenizer.tokenLineIdx(), e.what());
-    }
-  };
-
-  expectIdentifier(Identifiers::Category::VAR);
-  std::string name{ m_tokenizer.identifier() };
-  declare(name);
-  advanceOrError();
+  std::string type{ handleType() };
+  std::string name{ handleIdentifier(Identifiers::Category::VAR) };
+  
+  tryDefine(name, type, kind);
 
   while (m_tokenizer.tokenType() == TokenType::SYMBOL && m_tokenizer.symbol() == ',')
   {
     handleSymbol(',');
-
-    expectIdentifier(Identifiers::Category::VAR);
-    name = m_tokenizer.identifier();
-    declare(name);
-    advanceOrError();
+    name = handleIdentifier(Identifiers::Category::VAR);
+    tryDefine(name, type, kind);
   }
 
   handleSymbol(';');
@@ -276,46 +339,36 @@ void CompilationEngine::compileClassVarDec()
 void CompilationEngine::compileSubroutine()
 {
   m_symbolTable.startSubroutine();
+  m_isCurrSubVoid = false;
 
-  expectKeywordOneOf({KeyWords::KeyWord::CONSTRUCTOR, KeyWords::KeyWord::FUNCTION, KeyWords::KeyWord::METHOD});
-  bool isMethod{ m_tokenizer.keyWord() == KeyWords::KeyWord::METHOD };
-  bool isConstructor{ m_tokenizer.keyWord() == KeyWords::KeyWord::CONSTRUCTOR };
+  KeyWords::KeyWord kw{
+    handleKeywordOneOf({KeyWords::KeyWord::CONSTRUCTOR, KeyWords::KeyWord::FUNCTION, KeyWords::KeyWord::METHOD})
+  };
+  bool isMethod{ kw == KeyWords::KeyWord::METHOD };
+  bool isConstructor{ kw == KeyWords::KeyWord::CONSTRUCTOR };
 
-  switch (m_tokenizer.keyWord()) 
+  switch (kw) 
   {
   case KeyWords::KeyWord::CONSTRUCTOR: m_currSubKind = Identifiers::SubKind::CONSTRUCTOR; break;
   case KeyWords::KeyWord::FUNCTION:    m_currSubKind = Identifiers::SubKind::FUNCTION;    break;
   case KeyWords::KeyWord::METHOD:      m_currSubKind = Identifiers::SubKind::METHOD;      break;
   default:                             m_currSubKind = Identifiers::SubKind::NONE;        break;
   }
-  advanceOrError();
 
-  expectType(true);
-  std::string type{
-    m_tokenizer.tokenType() == TokenType::KEYWORD ? KeyWords::to_string(m_tokenizer.keyWord()) :
-                                                    m_tokenizer.identifier()
-  };
-  advanceOrError();
-
-  expectIdentifier(Identifiers::Category::SUBROUTINE);
-  std::string name{ m_className + "." + m_tokenizer.identifier() };
-  advanceOrError();
+  std::string type{ handleType(true) };
+  if (type == "void") m_isCurrSubVoid = true;
+  std::string name{ m_className + "." + handleIdentifier(Identifiers::Category::SUBROUTINE) };
   
   handleSymbol('(');
 
-  // ➜ add "this" as ARG 0 for methods
-  if (isMethod) {
-    try {
-      m_symbolTable.define("this", m_className, Identifiers::VarKind::ARG);
-    } catch (const std::logic_error& e) {
-      throw CompilationError(m_fileName, m_tokenizer.tokenLineIdx(), e.what());
-    }
+  if (isMethod) // Add "this" as ARG 0 for methods
+  {
+    tryDefine("this", m_className, Identifiers::VarKind::ARG);
   }
   
   compileParameterList();
   
   handleSymbol(')');
-    
   handleSymbol('{');
   
   while (m_tokenizer.tokenType() == TokenType::KEYWORD &&
@@ -346,43 +399,18 @@ void CompilationEngine::compileSubroutine()
 
 void CompilationEngine::compileParameterList()
 {
-
   if (m_tokenizer.tokenType() == TokenType::SYMBOL && m_tokenizer.symbol() == ')') return;
 
-  expectType();
-  std::string type{
-    m_tokenizer.tokenType() == TokenType::KEYWORD ? KeyWords::to_string(m_tokenizer.keyWord()) :
-                                                    m_tokenizer.identifier()
-  };
-  advanceOrError();
-
-  auto declare = [&](const std::string& n)
-  {
-    try { m_symbolTable.define(n, type, Identifiers::VarKind::ARG); } 
-    catch (const std::logic_error& e) {
-      throw CompilationError(m_fileName, m_tokenizer.tokenLineIdx(), e.what());
-    }
-  };
-
-  expectIdentifier(Identifiers::Category::VAR);
-  std::string name{ m_tokenizer.identifier() };
-  declare(name);
-  advanceOrError();
+  std::string type{ handleType() };
+  std::string name{ handleIdentifier(Identifiers::Category::VAR) };
+  tryDefine(name, type, Identifiers::VarKind::ARG);
 
   while (m_tokenizer.tokenType() == TokenType::SYMBOL && m_tokenizer.symbol() == ',')
   {
     handleSymbol(',');
-
-    expectType();
-    type =
-      m_tokenizer.tokenType() == TokenType::KEYWORD ? KeyWords::to_string(m_tokenizer.keyWord()) :
-                                                      m_tokenizer.identifier();
-    advanceOrError();
-
-    expectIdentifier(Identifiers::Category::VAR);
-    name = m_tokenizer.identifier();
-    declare(name);
-    advanceOrError();
+    type = handleType();
+    name = handleIdentifier(Identifiers::Category::VAR);
+    tryDefine(name, type, Identifiers::VarKind::ARG);
   }
 }
 
@@ -390,120 +418,94 @@ void CompilationEngine::compileVarDec()
 {
   handleKeyword(KeyWords::KeyWord::VAR);
 
-  expectType();
-  std::string type{
-    m_tokenizer.tokenType() == TokenType::KEYWORD ? KeyWords::to_string(m_tokenizer.keyWord()) :
-                                                    m_tokenizer.identifier()
-  };
-  advanceOrError();
-
-  auto declare = [&](const std::string& n)
-  {
-    try { m_symbolTable.define(n, type, Identifiers::VarKind::VAR); } 
-    catch (const std::logic_error& e) {
-      throw CompilationError(m_fileName, m_tokenizer.tokenLineIdx(), e.what());
-    }
-  };
-
-  expectIdentifier(Identifiers::Category::VAR);
-  std::string name{ m_tokenizer.identifier() };
-  declare(name);
-  advanceOrError();
+  std::string type{ handleType() };
+  std::string name{ handleIdentifier(Identifiers::Category::VAR) };
+  tryDefine(name, type, Identifiers::VarKind::VAR);
 
   while (m_tokenizer.tokenType() == TokenType::SYMBOL && m_tokenizer.symbol() == ',')
   {
     handleSymbol(',');
-
-    expectIdentifier(Identifiers::Category::VAR);
-    name = m_tokenizer.identifier();
-    declare(name);
-    advanceOrError();
+    name = handleIdentifier(Identifiers::Category::VAR);
+    tryDefine(name, type, Identifiers::VarKind::VAR);
   }
 
   handleSymbol(';');
-
 }
 
 void CompilationEngine::compileStatements()
 {
-
-  
-  while (true) 
-  {
-    if (m_tokenizer.tokenType() == TokenType::SYMBOL && m_tokenizer.symbol() == '}')
-      break;
-      
-    if (m_tokenizer.tokenType() != TokenType::KEYWORD)
+  while (!(m_tokenizer.tokenType() == TokenType::SYMBOL && m_tokenizer.symbol() == '}')) 
+  {   
+    bool error{ false };
+    if (m_tokenizer.tokenType() != TokenType::KEYWORD) error = true;
+    else
     {
-      std::string msg = "Expected statement keyword ('let', 'if', 'while', 'do', 'return')";
-      throw CompilationError(m_fileName, m_tokenizer.tokenLineIdx(), msg);
+      switch (m_tokenizer.keyWord())
+      {
+      case KeyWords::KeyWord::LET:    compileLet();    break;
+      case KeyWords::KeyWord::IF:     compileIf();     break;
+      case KeyWords::KeyWord::WHILE:  compileWhile();  break;
+      case KeyWords::KeyWord::DO:     compileDo();     break;
+      case KeyWords::KeyWord::RETURN: compileReturn(); break;
+      default:                        error = true;    break;
+      }
     }
 
-    switch (m_tokenizer.keyWord())
+    if(error)
     {
-    case KeyWords::KeyWord::LET:    compileLet();    break;
-    case KeyWords::KeyWord::IF:     compileIf();     break;
-    case KeyWords::KeyWord::WHILE:  compileWhile();  break;
-    case KeyWords::KeyWord::DO:     compileDo();     break;
-    case KeyWords::KeyWord::RETURN: compileReturn(); break;
-
-    default: 
-    {
-      std::string msg = "Expected statement keyword ('let', 'if', 'while', 'do', 'return')";
-      throw CompilationError(m_fileName, m_tokenizer.tokenLineIdx(), msg);
-    }
+      throw CompilationError(m_fileName, m_tokenizer.tokenLineIdx(), 
+                             "Expected statement keyword ('let', 'if', 'while', 'do', 'return')");
     }
   }
 }
 
-void CompilationEngine::compileDo()
+void CompilationEngine::compileSubroutineCall(const std::string& inBaseName /*= ""*/)
 {
-  handleKeyword(KeyWords::KeyWord::DO);
-
-  // Read first identifier (subroutine | class | var)
-  expectIdentifierOneOf({Identifiers::Category::SUBROUTINE,
-                         Identifiers::Category::CLASS,
-                         Identifiers::Category::VAR});
-  std::string baseName = m_tokenizer.identifier();
-  advanceOrError();
-
-  std::string callName;
+  std::string baseName{ inBaseName };
+  if (baseName == "")
+  {
+    // Read first identifier (subroutine | class | var)
+    baseName = handleIdentifierOneOf({ Identifiers::Category::SUBROUTINE,
+                                                  Identifiers::Category::CLASS,
+                                                  Identifiers::Category::VAR });
+  }
+  std::string callName{};
   int nArgs{ 0 };
 
+  // Case: obj.method(...)  or  Class.function(...)
   if (m_tokenizer.tokenType() == TokenType::SYMBOL && m_tokenizer.symbol() == '.') 
   {
-    // Case: obj.method(...)  or  Class.function(...)
     handleSymbol('.');
 
-    expectIdentifier(Identifiers::Category::SUBROUTINE);
-    std::string subName = m_tokenizer.identifier();
-    advanceOrError();
+    std::string subName{ handleIdentifier(Identifiers::Category::SUBROUTINE) };
+    Identifiers::VarKind kind{ m_symbolTable.kindOf(baseName) };
 
     // If baseName is a variabile → method call on object
-    Identifiers::VarKind kind{ m_symbolTable.kindOf(baseName) };
     if (kind != Identifiers::VarKind::NONE) 
     {
-      int index = m_symbolTable.indexOf(baseName);
-      std::string type = m_symbolTable.typeOf(baseName);
+      int index{ m_symbolTable.indexOf(baseName) };
+      std::string type{ m_symbolTable.typeOf(baseName) };
       // push object as arg0
       m_writer.writePush(segmentOf(kind), index);
       nArgs = 1;
       callName = type + "." + subName;
-    } else {
-      // otherwise it is the name of a class
+    } 
+    else // otherwise it is the name of a class
+    {
       callName = baseName + "." + subName;
     }
-  } else {
-    // Case: subroutineName(...)  → implicit method on this
-    if (m_currSubKind == Identifiers::SubKind::FUNCTION) {
+  } 
+  // Case: subroutineName(...) → implicit method on this
+  else 
+  {
+    if (m_currSubKind == Identifiers::SubKind::FUNCTION) 
+    {
       throw CompilationError(
           m_fileName, m_tokenizer.tokenLineIdx(),
-          "Invalid unqualified call '" + baseName +
-          "' inside a function; qualify with a class name (e.g. " + m_className + "." + baseName +
-          ") or call a method via an object (obj." + baseName + ")"
+          "Subroutine " + m_className + "." + baseName + " called as a method from within a function"
       );
     }
-    m_writer.writePush(VM::Segment::POINTER, 0); // this
+    m_writer.writePush(VM::Segment::POINTER, 0); // push this
     nArgs = 1;
     callName = m_className + "." + baseName;
   }
@@ -513,10 +515,16 @@ void CompilationEngine::compileDo()
   handleSymbol(')');
 
   m_writer.writeCall(callName, nArgs + exprCount);
+}
+
+void CompilationEngine::compileDo()
+{
+  handleKeyword(KeyWords::KeyWord::DO);
+  
+  compileSubroutineCall();
+  handleSymbol(';');
   // "do" discards the return value
   m_writer.writePop(VM::Segment::TEMP, 0);
-
-  handleSymbol(';');
 }
 
 void CompilationEngine::compileLet()
@@ -524,9 +532,7 @@ void CompilationEngine::compileLet()
   handleKeyword(KeyWords::KeyWord::LET);
 
   // varName
-  expectIdentifier(Identifiers::Category::VAR);
-  std::string name{ m_tokenizer.identifier() };
-
+  std::string name{ handleIdentifier(Identifiers::Category::VAR) };
   Identifiers::VarKind kind{ m_symbolTable.kindOf(name) };
 
   if (kind == Identifiers::VarKind::NONE) 
@@ -536,12 +542,9 @@ void CompilationEngine::compileLet()
   }
 
   int index{ m_symbolTable.indexOf(name) };
-
   VM::Segment baseSeg{ segmentOf(kind) };
 
-  advanceOrError();
-
-  // let a[expr] = expr;
+  // Case 1: let x[expr] = expr;
   if (m_tokenizer.tokenType() == TokenType::SYMBOL && m_tokenizer.symbol() == '[') 
   {
     handleSymbol('[');
@@ -550,10 +553,10 @@ void CompilationEngine::compileLet()
     // push expr
     compileExpression();
     handleSymbol(']');
-
     handleSymbol('=');
+    //push RHS expr
+    compileExpression();
 
-    compileExpression();                        // RHS
     m_writer.writePop(VM::Segment::TEMP, 0);    // save RHS
     m_writer.writeArithmetic(VM::Command::ADD); // sum base+offset
     m_writer.writePop(VM::Segment::POINTER, 1); // THAT = base+offset
@@ -561,10 +564,10 @@ void CompilationEngine::compileLet()
     m_writer.writePop(VM::Segment::THAT, 0);    // *THAT = RHS
 
     handleSymbol(';');
+
     return;
   }
-
-  // let x = expr;
+  // Case 2: let x = expr;
   handleSymbol('=');
   compileExpression();
   m_writer.writePop(baseSeg, index);
@@ -573,28 +576,22 @@ void CompilationEngine::compileLet()
 
 void CompilationEngine::compileWhile()
 {
-  handleKeyword(KeyWords::KeyWord::WHILE);
-  handleSymbol('(');
+  std::string label1{ getNewLabel() };
+  std::string label2{ getNewLabel()  };
 
-  std::string label1{ m_className + "_" + std::to_string(m_labelIdx++) };
-  std::string label2{ m_className + "_" + std::to_string(m_labelIdx++) };
+  handleKeyword(KeyWords::KeyWord::WHILE);
 
   m_writer.writeLabel(label1);
-
+  handleSymbol('(');
   compileExpression();
   m_writer.writeArithmetic(VM::Command::NOT);
-
   handleSymbol(')');
-
   m_writer.writeIf(label2);
 
   handleSymbol('{');
-
   compileStatements();
-
-  m_writer.writeGoto(label1);
-
   handleSymbol('}');
+  m_writer.writeGoto(label1);
 
   m_writer.writeLabel(label2);
 }
@@ -603,49 +600,51 @@ void CompilationEngine::compileReturn()
 {
   handleKeyword(KeyWords::KeyWord::RETURN);
 
-  if (m_tokenizer.tokenType() != TokenType::SYMBOL || m_tokenizer.symbol() != ';') {
+  if (m_tokenizer.tokenType() != TokenType::SYMBOL || m_tokenizer.symbol() != ';') 
+  {
+    if (m_isCurrSubVoid)
+    {
+      throw CompilationError(m_fileName, m_tokenizer.tokenLineIdx(), 
+                             "A void function must not return a value");
+    }
     compileExpression();
-  } else {
+  } 
+  else 
+  {
+    // Push 0 as default
     m_writer.writePush(VM::Segment::CONST, 0);
   }
 
   m_writer.writeReturn();
-
   handleSymbol(';');
 }
 
 void CompilationEngine::compileIf()
 {
-  handleKeyword(KeyWords::KeyWord::IF);
-  handleSymbol('(');
+  std::string label1{ getNewLabel() };
+  std::string label2{ getNewLabel() };
 
+  handleKeyword(KeyWords::KeyWord::IF);
+
+  handleSymbol('(');
   compileExpression();
   m_writer.writeArithmetic(VM::Command::NOT);
-
   handleSymbol(')');
   
-  std::string label1{ m_className + "_" + std::to_string(m_labelIdx++) };
-  std::string label2{ m_className + "_" + std::to_string(m_labelIdx++) };
-  
-  handleSymbol('{');
-
   m_writer.writeIf(label1);
-
+  handleSymbol('{');
   compileStatements();
-
-  m_writer.writeGoto(label2);
-
   handleSymbol('}');
+  m_writer.writeGoto(label2);
 
   m_writer.writeLabel(label1);
 
   if (m_tokenizer.tokenType() == TokenType::KEYWORD && m_tokenizer.keyWord() == KeyWords::KeyWord::ELSE)
   {
     handleKeyword(KeyWords::KeyWord::ELSE);
+
     handleSymbol('{');
-
     compileStatements();
-
     handleSymbol('}');
   }
 
@@ -657,17 +656,13 @@ int CompilationEngine::compileExpressionList()
   if (m_tokenizer.tokenType() == TokenType::SYMBOL && m_tokenizer.symbol() == ')') return 0;
 
   int exprCount{ 0 };
-
   while (true) 
   {
     compileExpression();
     ++exprCount;
 
-    if (m_tokenizer.tokenType() == TokenType::SYMBOL && m_tokenizer.symbol() == ',') {
-      handleSymbol(',');  
-    } else {
-      break; 
-    }
+    if (m_tokenizer.tokenType() == TokenType::SYMBOL && m_tokenizer.symbol() == ',') handleSymbol(',');  
+    else break; 
   }
 
   return exprCount;
@@ -679,19 +674,14 @@ void CompilationEngine::compileExpression()
 
   while (isOperator())
   {
-    expectOperator();
-    char op{ m_tokenizer.symbol() };
-    advanceOrError();
-
+    char op{ handleOperator() };
     compileTerm();
 
-    if (op == '*') {
-      m_writer.writeCall("Math.multiply", 2);
-    } else if (op == '/') {
-      m_writer.writeCall("Math.divide", 2);
-    } else {
-      // + - & | < > =
-      m_writer.writeArithmetic(VM::command_from_char(op));
+    switch (op)
+    {
+      case '*': m_writer.writeCall("Math.multiply", 2);              break;
+      case '/': m_writer.writeCall("Math.divide", 2);                break;
+      default : m_writer.writeArithmetic(VM::command_from_char(op)); break;
     }
   }
 }
@@ -701,71 +691,18 @@ void CompilationEngine::compileTerm()
   // 1) IDENTIFIER: VarName | VarName[expression] | Subroutine call
   if (m_tokenizer.tokenType() == TokenType::IDENTIFIER) 
   {
-    expectIdentifierOneOf({Identifiers::Category::SUBROUTINE,
-                           Identifiers::Category::CLASS,
-                           Identifiers::Category::VAR});
-    std::string baseName = m_tokenizer.identifier();
-    advanceOrError();
-                            
-    // Subroutine call: (className | varName).subroutineName(expressionList) 
-    if (m_tokenizer.tokenType() == TokenType::SYMBOL && m_tokenizer.symbol() == '.')
+    std::string baseName{ handleIdentifierOneOf({Identifiers::Category::SUBROUTINE,
+                                                 Identifiers::Category::CLASS,
+                                                 Identifiers::Category::VAR})
+    };                
+    // Subroutine call: (className | varName).subroutineName(expressionList) | subroutineName(expressionList)
+    if ((m_tokenizer.tokenType() == TokenType::SYMBOL) &&
+        ((m_tokenizer.symbol() == '.') || (m_tokenizer.symbol() == '(')))
     {
-      handleSymbol('.');
-
-      expectIdentifier(Identifiers::Category::SUBROUTINE);
-      std::string subName = m_tokenizer.identifier();
-      advanceOrError();
-
-      std::string callName;
-      int nArgs = 0;
-
-      // If baseName is a variabile → method call on object
-      Identifiers::VarKind kind{ m_symbolTable.kindOf(baseName) };
-      if (kind != Identifiers::VarKind::NONE) 
-      {
-        int index = m_symbolTable.indexOf(baseName);
-        std::string type = m_symbolTable.typeOf(baseName);
-        // push object as arg0
-        m_writer.writePush(segmentOf(kind), index);
-        nArgs = 1;
-        callName = type + "." + subName;
-      } else {
-        // otherwise it is the name of a class
-        callName = baseName + "." + subName;
-      }
-
-      handleSymbol('(');
-      int exprCount = compileExpressionList();
-      handleSymbol(')');
-
-      m_writer.writeCall(callName, nArgs + exprCount);
-
-      return;
+      compileSubroutineCall(baseName);
     }
-    // Subroutine call: subroutineName(expressionList)                      
-    if ((m_tokenizer.tokenType() == TokenType::SYMBOL) && (m_tokenizer.symbol() == '('))  
-    {
-      if (m_currSubKind == Identifiers::SubKind::FUNCTION) {
-        throw CompilationError(
-          m_fileName, m_tokenizer.tokenLineIdx(),
-          "Invalid unqualified call '" + baseName +
-          "' inside a function; qualify with a class name (e.g. " + m_className + "." + baseName +
-          ") or call a method via an object (obj." + baseName + ")"
-        );
-      }
-
-      handleSymbol('(');
-      m_writer.writePush(VM::Segment::POINTER, 0); // push this as arg0
-      int nArgs = 1 + compileExpressionList();
-      handleSymbol(')');
-
-      std::string callName = m_className + "." + baseName;
-      m_writer.writeCall(callName, nArgs);
-
-      return;
-    }                  
     // VarName[expression]
-    if (m_tokenizer.tokenType() == TokenType::SYMBOL && m_tokenizer.symbol() == '[')
+    else if (m_tokenizer.tokenType() == TokenType::SYMBOL && m_tokenizer.symbol() == '[')
     {
       Identifiers::VarKind kind{ m_symbolTable.kindOf(baseName) };
       if (kind != Identifiers::VarKind::NONE) 
@@ -786,15 +723,14 @@ void CompilationEngine::compileTerm()
         throw CompilationError(m_fileName, m_tokenizer.tokenLineIdx(),
                                "Undefined variable '" + baseName + "'");
       }
-
-      return;
     }
-    // Case: simple varName → push value
+    // Simple varName → push value
+    else
     {
       Identifiers::VarKind kind{ m_symbolTable.kindOf(baseName) };
       if (kind != Identifiers::VarKind::NONE)
       {
-        int index = m_symbolTable.indexOf(baseName);
+        int index { m_symbolTable.indexOf(baseName) };
         m_writer.writePush(segmentOf(kind), index);
       }
       else 
@@ -802,8 +738,6 @@ void CompilationEngine::compileTerm()
         throw CompilationError(m_fileName, m_tokenizer.tokenLineIdx(),
                                "Undefined variable '" + baseName + "'");
       }
-
-      return;
     }
   }
   // 2) Keyword constant
@@ -813,9 +747,10 @@ void CompilationEngine::compileTerm()
             m_tokenizer.keyWord() == KeyWords::KeyWord::NULL_ ||
             m_tokenizer.keyWord() == KeyWords::KeyWord::THIS  ))
   {
-    expectKeywordOneOf({KeyWords::KeyWord::TRUE, KeyWords::KeyWord::FALSE, 
-                        KeyWords::KeyWord::NULL_, KeyWords::KeyWord::THIS});
-    KeyWords::KeyWord kw{ m_tokenizer.keyWord() };
+    
+    KeyWords::KeyWord kw{ handleKeywordOneOf({KeyWords::KeyWord::TRUE, KeyWords::KeyWord::FALSE, 
+                        KeyWords::KeyWord::NULL_, KeyWords::KeyWord::THIS}) 
+    };
     switch (kw)
     {
     case KeyWords::KeyWord::TRUE:
@@ -835,43 +770,34 @@ void CompilationEngine::compileTerm()
       m_writer.writePush(VM::Segment::POINTER, 0);
       break;
     }
-    default: break;
+    default: break; // never
     }
-    advanceOrError();
   }
   // 3) Unary op + term
   else if ((m_tokenizer.tokenType() == TokenType::SYMBOL) &&
            (m_tokenizer.symbol() == '-' || m_tokenizer.symbol() == '~'))
   {
-    expectUnaryOperator();
-    char op{ m_tokenizer.symbol() };
-    advanceOrError();
-
+    char op{ handleUnaryOperator() };
     compileTerm();
-
     m_writer.writeArithmetic(VM::command_from_char(op, true));
   }
   // 4) ( expression )
   else if ((m_tokenizer.tokenType() == TokenType::SYMBOL) && (m_tokenizer.symbol() == '('))
   {
     handleSymbol('(');
-
     compileExpression();
-
     handleSymbol(')');
   }
   // 5) Integer constant
   else if (m_tokenizer.tokenType() == TokenType::INT_CONST)
   {
-    expectIntConst();
-    m_writer.writePush(VM::Segment::CONST, m_tokenizer.intVal());
-    advanceOrError();
+    int val{ handleIntConst() };
+    m_writer.writePush(VM::Segment::CONST, val);
   }
   // 6) String constant
   else if (m_tokenizer.tokenType() == TokenType::STRING_CONST)
   {
-    expectStringConst();
-    std::string str{ m_tokenizer.stringVal() };
+    std::string str{ handleStringConst() };
     m_writer.writePush(VM::Segment::CONST, static_cast<int>(str.size()));
     m_writer.writeCall("String.new", 1);
 
@@ -880,10 +806,8 @@ void CompilationEngine::compileTerm()
       m_writer.writePush(VM::Segment::CONST, static_cast<int>(c));
       m_writer.writeCall("String.appendChar", 2);
     }
-
-    advanceOrError();
   }
-  // 7)
+  // 7) Error
   else 
   {
     throw CompilationError(

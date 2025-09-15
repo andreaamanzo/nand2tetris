@@ -29,13 +29,11 @@ void JackCompiler::compile()
     }
 
     // Process the input file and write to the respective output file
-
-    std::cout << inputFile.fileName << ".jack: ";
-
+    
     CompilationEngine compilationEngine(inputFile, outputFile);
 
     compilationEngine.compile();
     
-    std::cout << "Compiled\n\n";
+    std::cout << inputFile.fileName << ".jack: " << "Compiled\n";
   }
 }

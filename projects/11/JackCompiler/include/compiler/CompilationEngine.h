@@ -1,5 +1,5 @@
-#ifndef COMPILATIONENGINE_H
-#define COMPILATIONENGINE_H
+#ifndef COMPILATION_ENGINE_H
+#define COMPILATION_ENGINE_H
 
 #include <fstream>
 #include <string>
@@ -16,9 +16,10 @@ private:
   std::string m_fileName{};
   VMWriter m_writer;
   JackTokenizer m_tokenizer;
-  SymbolTable m_symbolTable{};
+  SymbolTable m_symbolTable;
   std::string m_className{};
   Identifiers::SubKind m_currSubKind{ Identifiers::SubKind::NONE };
+  bool m_isCurrSubVoid{ false };
   int m_labelIdx{ 0 };
 
   static VM::Segment segmentOf(Identifiers::VarKind k)
@@ -36,22 +37,31 @@ private:
   }
 
   void advanceOrError();
-  bool isOperator();
+  bool isOperator() const noexcept;
+  void tryDefine(const std::string& name, const std::string& type, Identifiers::VarKind kind);
+  std::string getNewLabel();
 
-  void expectIdentifier(Identifiers::Category identifierCategory);
-  void expectIdentifierOneOf(std::initializer_list<Identifiers::Category> allowed);
-  void expectSymbol(char symbol);
-  void expectKeyword(KeyWords::KeyWord keyWord);
-  void expectKeywordOneOf(std::initializer_list<KeyWords::KeyWord> allowed);
-  void expectIntConst();
-  void expectStringConst();
-  void expectType(bool voidOption = false);
-  void expectOperator();
-  void expectUnaryOperator();
+  void expectIdentifier(Identifiers::Category identifierCategory) const;
+  void expectIdentifierOneOf(std::initializer_list<Identifiers::Category> allowed) const;
+  void expectSymbol(char symbol) const;
+  void expectKeyword(KeyWords::KeyWord keyWord) const;
+  void expectKeywordOneOf(std::initializer_list<KeyWords::KeyWord> allowed) const;
+  void expectIntConst() const;
+  void expectStringConst() const;
+  void expectType(bool voidOption = false) const;
+  void expectOperator() const;
+  void expectUnaryOperator() const;
 
   void handleSymbol(char symbol);
-  void handleKeyword(KeyWords::KeyWord keyWord);
-  void handleKeywordOneOf(std::initializer_list<KeyWords::KeyWord> allowed);
+  KeyWords::KeyWord handleKeyword(KeyWords::KeyWord keyWord);
+  KeyWords::KeyWord handleKeywordOneOf(std::initializer_list<KeyWords::KeyWord> allowed);
+  std::string handleIdentifier(Identifiers::Category identifierCategory);
+  std::string handleIdentifierOneOf(std::initializer_list<Identifiers::Category> allowed);
+  int handleIntConst();
+  std::string handleStringConst();
+  std::string handleType(bool voidOption = false);
+  char handleOperator();
+  char handleUnaryOperator();
 
   void compileClass();
   void compileClassVarDec();
@@ -59,21 +69,20 @@ private:
   void compileParameterList();
   void compileVarDec();
   void compileStatements();
+  void compileSubroutineCall(const std::string& inBaseName = "");
   void compileDo();
   void compileLet();
   void compileWhile();
   void compileIf();
   void compileReturn();
   void compileExpression();
-  int compileExpressionList();
+  int  compileExpressionList();
   void compileTerm();
-
   
 public:
   CompilationEngine(InputFile& inputFile, std::ofstream& outputFile);
 
   void compile();
-
 };
 
 #endif
