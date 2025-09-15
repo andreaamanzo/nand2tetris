@@ -22,7 +22,7 @@ std::string CodeWriter::uniqueLabelJmp(const std::string& jmp)
     throw std::invalid_argument("Unknown jump type: " + jmp);
 
   int id = (*ctr)++; 
-  return jmp + "_END_" + std::to_string(id);
+  return "$" + jmp + "_END_" + std::to_string(id);
 }
 
 std::string CodeWriter::uniqueLabelRetAddress() 
@@ -309,6 +309,16 @@ void CodeWriter::writeFunction(const std::string functionName, int nLocals)
 
 void CodeWriter::writeReturn()
 {
+  static bool s_isFirstTime{ true };
+
+  m_outputFile << "@$RETURN$\n0;JMP\n";
+
+  if (!s_isFirstTime)
+  {
+    return;
+  }
+
+  s_isFirstTime = false;
   auto emitRestore = [](int n, const std::string& symbol) -> std::string
   {
     return 
@@ -322,6 +332,7 @@ void CodeWriter::writeReturn()
   };
 
   std::string code =
+    "($RETURN$)\n"
     // 1. Pop the return address 
     "@LCL\n"
     "D=M\n"
