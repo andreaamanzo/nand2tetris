@@ -25,7 +25,7 @@ Additionally, it includes projects written in **Jack**, the high-level language 
 - Input: `.vm` files (single or multiple).  
 - Output: `.asm` (Hack Assembly).  
 
-### 09: Jack Programs (Jack → VM)
+### 09: Jack Programs (Jack)
 - High-level projects written in the **Jack programming language**.   
 - Implemented my own project:  
   - **Snake Game** (`Main.jack` + support classes).  
@@ -60,6 +60,16 @@ Additionally, it includes projects written in **Jack**, the high-level language 
   - Both are in XML format, suitable for comparison with the supplied reference files (`XxxT.xml` and `Xxx.xml`). 
 - Purpose: validation of parsing correctness before full compilation.  
 
+### 11: Jack Compiler (Jack → VM)
+- Second stage of the **Jack Compiler** in C++20.  
+- Generates **VM code** directly from Jack programs, implementing all compilation rules of the Jack language.  
+- Components:
+  - **Tokenizer** — manages Jack tokens.  
+  - **Compilation Engine** — translates syntax into VM commands.  
+  - **VM Writer** — produces VM code according to the VM specification.  
+  - **Symbol Table** — manages symbol definitions and scopes.  
+- **Input**: single `.jack` file or an entire directory of Jack sources.  
+- **Output**: `.vm` file(s), one for each input file, generated inside an automatically created directory named `out`  
 ---
 
 ## ⚙️ Build Instructions
@@ -105,21 +115,34 @@ cmake --build build --config Release
 
 # Single file
 ./JackAnalyzer path/to/File.jack
-# Output: path/to/out_analizer/File.xml
+# Output: path/to/out_analizer/File(T).xml
 
 # Directory (recursively)
 ./JackAnalyzer path/to/ProjectDir/
 # Output: path/to/ProjectDir/out_analizer/*.xml
 ```
 
+### Jack Compiler (Jack → VM)
+```bash
+# from: 11/JackCompiler/build
+
+# Single file
+./JackCompiler path/to/File.jack
+# Output: path/to/out/File.vm
+
+# Entire directory
+./JackCompiler path/to/ProjectDir/
+# Output: path/to/ProjectDir/out/*.vm
+```
+
 ---
 
 ## 📖 Progress Status
 
-- ✅ Hardware (Projects 1–5, including ASM programs)  
+- ✅ Hardware & ASM programs (Projects 1–5)  
 - ✅ Assembler (Project 6)  
 - ✅ VM Translator (Projects 7–8)  
-- ✅ Jack Programs (Project 9, including **Snake Game**)  
+- ✅ Jack Programs (Project 9)  
 - ✅ Jack Analyzer (Project 10)  
-- 🔜 Jack Compiler: Code Generation (Projects 11)  
+- ✅ Jack Compiler (Projects 11)  
 - 🔜 Jack OS Implementations (Project 12)  
