@@ -31,6 +31,11 @@ std::string CodeWriter::uniqueLabelRetAddress()
   return "RETURN_ADDRESS_" + std::to_string(id);
 }
 
+std::string CodeWriter::emitCallLabel(const std::string& f, int n) 
+{
+  return "$CALL$" + f + "$" + std::to_string(n) + "$";
+}
+
 std::string CodeWriter::emitBinary(const std::string& op) 
 {
   // pop y in D, punta a x e applica: x = x op y
@@ -53,24 +58,16 @@ std::string CodeWriter::emitUnary(const std::string& op)
     "M=" + op + "M\n";
 }
 
-std::string CodeWriter::emitCompare(const std::string& jmp) 
+std::string CodeWriter::emitCompare(const std::string& which) 
 {
-  const std::string label = uniqueLabelJmp(jmp);
+  // which ∈ {"GT","LT","EQ"}
+  const std::string ret{ uniqueLabelJmp(which) };   // es: RET_GT_42
   return
-    "@SP\n"
-    "AM=M-1\n"
-    "D=M\n"
-    "A=A-1\n"
-    "D=M-D\n"          // D = x - y
-    "@SP\n"
-    "A=M-1\n"
-    "M=-1\n"           // preset true (-1)
-    "@" + label + "\n"
-    "D;J" + jmp + "\n" // se condizione soddisfatta, salta: resta -1
-    "@SP\n"
-    "A=M-1\n"
-    "M=0\n"            // altrimenti false (0)
-    "(" + label + ")\n";
+    "@" + ret + "\n"
+    "D=A\n"
+    "@$" + which + "$\n" 
+    "0;JMP\n"
+    "(" + ret + ")\n";
 }
 
 std::string CodeWriter::emitMemorySegment(const std::string& segment, int index)
@@ -149,6 +146,169 @@ void CodeWriter::writeInit()
 
   // call Sys.init
   writeCall("Sys.init", 0);
+
+  writeInitSubroutines();
+}
+
+void CodeWriter::writeInitSubroutines() 
+{
+  std::string code;
+
+// ---------- GT ----------
+  code +=
+    "($GT$)\n"
+    "@R13\n"
+    "M=D\n"                // R13 = return address
+    "@SP\n"
+    "AM=M-1\n"             // SP-- ; A=SP ; M= y
+    "D=M\n"                // D = y
+    "A=A-1\n"              // A = SP-1 ; M = x
+    "D=M-D\n"              // D = x - y
+    "@SP\n"
+    "A=M-1\n"
+    "M=-1\n"               // preset true
+    "@R13\n"
+    "A=M\n"                // A = return address
+    "D;JGT\n"              // if x>y, jump (-1)
+    "@SP\n"
+    "A=M-1\n"
+    "M=0\n"                // else false (0)
+    "@R13\n"
+    "A=M\n"
+    "0;JMP\n";
+
+// ---------- LT ----------
+  code +=
+    "($LT$)\n"
+    "@R13\n"
+    "M=D\n"
+    "@SP\n"
+    "AM=M-1\n"
+    "D=M\n"
+    "A=A-1\n"
+    "D=M-D\n"              // D = x - y
+    "@SP\n"
+    "A=M-1\n"
+    "M=-1\n"               // preset true
+    "@R13\n"
+    "A=M\n"
+    "D;JLT\n"              // if x<y, jump
+    "@SP\n"
+    "A=M-1\n"
+    "M=0\n"
+    "@R13\n"
+    "A=M\n"
+    "0;JMP\n";
+
+// ---------- EQ ----------
+  code +=
+    "($EQ$)\n"
+    "@R13\n"
+    "M=D\n"
+    "@SP\n"
+    "AM=M-1\n"
+    "D=M\n"
+    "A=A-1\n"
+    "D=M-D\n"              // D = x - y
+    "@SP\n"
+    "A=M-1\n"
+    "M=-1\n"               // preset true
+    "@R13\n"
+    "A=M\n"
+    "D;JEQ\n"              // if x==y, jump
+    "@SP\n"
+    "A=M-1\n"
+    "M=0\n"
+    "@R13\n"
+    "A=M\n"
+    "0;JMP\n";
+
+// ---------- RETURN ----------
+  auto emitRestore = [](int n, const std::string& symbol) -> std::string
+  {
+    return 
+      "@" + std::to_string(n) + "\n"
+      "D=A\n"
+      "@LCL\n"
+      "A=M-D\n"
+      "D=M\n"
+      "@" + symbol + "\n"
+      "M=D\n";
+  };
+
+  code +=
+    "($RETURN$)\n"
+    // 1. Pop the return address 
+    "@LCL\n"
+    "D=M\n"
+    "@5\n"    // The return address is stored at LCL - 5
+    "A=D-A\n"
+    "D=M\n"   // D = return address (the value stored at LCL-5)
+    "@R14\n"  // RET
+    "M=D\n"
+
+    // 2. Pop the return value
+    "@SP\n"
+    "AM=M-1\n"
+    "D=M\n"
+    "@ARG\n"
+    "A=M\n"
+    "M=D\n"
+
+    // 3. Restore the stack pointer (SP = ARG + 1)
+    "@ARG\n"
+    "D=M+1\n"
+    "@SP\n"
+    "M=D\n"
+
+    // 4. Restore THAT, THIS, ARG, LCL
+    +  
+    emitRestore(1, "THAT") + // THAT is stored at LCL - 1
+    emitRestore(2, "THIS") + // THIS is stored at LCL - 2
+    emitRestore(3, "ARG")  + // ARG is stored at LCL - 3
+    emitRestore(4, "LCL")  + // LCL is stored at LCL - 4
+
+    // 5. Return the saved return address
+    "@R14\n"
+    "A=M\n"
+    "0;JMP\n";
+  
+// ---------- CALL ----------
+  code +=
+    "($CALL$)\n"
+    // push return address (in D)
+    "@SP\n"
+    "AM=M+1\n"
+    "A=A-1\n"
+    "M=D\n" +
+
+    emitPush("LCL") +
+    emitPush("ARG") +
+    emitPush("THIS") +
+    emitPush("THAT") +
+
+    // ARG = SP - 5 - R13
+    "@SP\n"
+    "D=M\n"
+    "@5\n"
+    "D=D-A\n"
+    "@R13\n" // R13 = numArgs
+    "D=D-M\n"
+    "@ARG\n"
+    "M=D\n"
+
+    // LCL = SP
+    "@SP\n"
+    "D=M\n"
+    "@LCL\n"
+    "M=D\n"
+
+    // goto function (address in R14)
+    "@R14\n" // R14 = functionName
+    "A=M\n"
+    "0;JMP\n";
+
+  m_outputFile << code;
 }
 
 void CodeWriter::writeArithmetic(const std::string& command)
@@ -249,125 +409,112 @@ void CodeWriter::writeIf(const std::string& label)
   m_outputFile << code;
 }
 
-void CodeWriter::writeCall(const std::string functionName, int numArgs)
+void CodeWriter::writeCall(const std::string& functionName, int numArgs)
 {
-  std::string returnAddressLabel{ uniqueLabelRetAddress() };
+  const std::string retLabel  = uniqueLabelRetAddress();
+  const std::string callLabel = emitCallLabel(functionName, numArgs);
 
+  std::string code{};
 
-  std::string code =
-    emitPush(returnAddressLabel, true) +
-    emitPush("LCL") +
-    emitPush("ARG") +
-    emitPush("THIS") +
-    emitPush("THAT") +
+  // Always: set D = return address
+  code +=
+    "@" + retLabel + "\n"
+    "D=A\n";
 
-    // ARG = SP - numArgs - 5
-    "@SP\n"
-    "D=M\n"
-    "@5\n"
-    "D=D-A\n"
-    "@" + std::to_string(numArgs) + "\n"
-    "D=D-A\n"
-    "@ARG\n"
-    "M=D\n"
+  // If this is the FIRST time for (functionName, numArgs), emit the callLabel
+  if (m_emittedCalls.insert(callLabel).second) {
+    code +=
+      "(" + callLabel + ")\n"
+      // Save D (return address) because we will reuse D
+      "@R15\n"
+      "M=D\n"
+      // R13 = numArgs
+      "@" + std::to_string(numArgs) + "\n"
+      "D=A\n"
+      "@R13\n"
+      "M=D\n"
+      // R14 = address(functionName)
+      "@" + functionName + "\n"
+      "D=A\n"
+      "@R14\n"
+      "M=D\n"
+      // Restore D = return address
+      "@R15\n"
+      "D=M\n"
+      // Jump to the common $CALL$ subroutine
+      "@$CALL$\n"
+      "0;JMP\n";
+  } else {
+    // callLabel already defined: jump directly to it
+    code +=
+      "@" + callLabel + "\n"
+      "0;JMP\n";
+  }
 
-    // LCL = SP
-    "@SP\n"
-    "D=M\n"
-    "@LCL\n"
-    "M=D\n"
+  // Emit the return label
+  code += "(" + retLabel + ")\n";
 
-    // goto functionName
-    "@" + functionName + "\n"
-    "0;JMP\n"
-
-    // return-address label
-    "(" + returnAddressLabel + ")\n";
-
-    m_outputFile << code;
+  m_outputFile << code;
 }
 
-void CodeWriter::writeFunction(const std::string functionName, int nLocals)
+void CodeWriter::writeFunction(const std::string& functionName, int nLocals)
 {
   std::string code =
     // declare a label for the function entry
     "(" + functionName + ")\n";
   
   // initialize all local variables to 0
-  for (int i = 0; i < nLocals; i++)
-  {
+
+  // if nLocals > 4 use an assembly loop
+  if (nLocals > 4) {
+    std::string loopLabel  = functionName + "$initLocals";
+    std::string endLabel   = functionName + "$endInit";
+
     code +=
+      "@" + std::to_string(nLocals) + "\n"  // counter = nLocals
+      "D=A\n"
+      "@R13\n"
+      "M=D\n"
+
+      "(" + loopLabel + ")\n"
+      "@R13\n"
+      "D=M\n"
+      "@" + endLabel + "\n"
+      "D;JEQ\n"             // if counter == 0 -> end
+
+      // push 0
       "@SP\n"
       "A=M\n"
       "M=0\n"
       "@SP\n"
-      "M=M+1\n";
-  }
+      "M=M+1\n"
 
+      // counter--
+      "@R13\n"
+      "M=M-1\n"
+      "@" + loopLabel + "\n"
+      "0;JMP\n"
+
+      "(" + endLabel + ")\n";
+  }
+  else // else print the code n times
+  {
+    for (int i = 0; i < nLocals; i++)
+    {
+      code +=
+        "@SP\n"
+        "A=M\n"
+        "M=0\n"
+        "@SP\n"
+        "M=M+1\n";
+    }
+  }
+  
   m_outputFile << code;
 }
 
 void CodeWriter::writeReturn()
 {
-  static bool s_isFirstTime{ true };
-
   m_outputFile << "@$RETURN$\n0;JMP\n";
-
-  if (!s_isFirstTime)
-  {
-    return;
-  }
-
-  s_isFirstTime = false;
-  auto emitRestore = [](int n, const std::string& symbol) -> std::string
-  {
-    return 
-      "@" + std::to_string(n) + "\n"
-      "D=A\n"
-      "@LCL\n"
-      "A=M-D\n"
-      "D=M\n"
-      "@" + symbol + "\n"
-      "M=D\n";
-  };
-
-  std::string code =
-    "($RETURN$)\n"
-    // 1. Pop the return address 
-    "@LCL\n"
-    "D=M\n"
-    "@5\n"    // The return address is stored at LCL - 5
-    "A=D-A\n"
-    "D=M\n"   // D = return address (the value stored at LCL-5)
-    "@R14\n"  // RET
-    "M=D\n"
-
-    // 2. Pop the return value
-    "@SP\n"
-    "AM=M-1\n"
-    "D=M\n"
-    "@ARG\n"
-    "A=M\n"
-    "M=D\n"
-
-    // 3. Restore the stack pointer (SP = ARG + 1)
-    "@ARG\n"
-    "D=M+1\n"
-    "@SP\n"
-    "M=D\n"
-
-    // 4. Restore THAT, THIS, ARG, LCL
-    +  
-    emitRestore(1, "THAT") + // THAT is stored at LCL - 1
-    emitRestore(2, "THIS") + // THIS is stored at LCL - 2
-    emitRestore(3, "ARG")  + // ARG is stored at LCL - 3
-    emitRestore(4, "LCL")  + // LCL is stored at LCL - 4
-
-    // 5. Return the saved return address
-    "@R14\n"
-    "A=M\n"
-    "0;JMP\n";
-
-    m_outputFile << code;
 }
 

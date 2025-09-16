@@ -5,6 +5,7 @@
 #include <fstream>
 #include <string>
 #include <map>
+#include <unordered_set>
 #include "CommandType.h"
 
 class CodeWriter
@@ -12,6 +13,8 @@ class CodeWriter
 private:
   std::ofstream& m_outputFile;
   std::string m_fileName{};
+  std::unordered_set<std::string> m_emittedCalls{};
+
 
   int m_eqLabelId{ 0 };
   int m_gtLabelId{ 0 };
@@ -20,6 +23,7 @@ private:
 
   std::string uniqueLabelJmp(const std::string& jmp);
   std::string uniqueLabelRetAddress();
+  std::string emitCallLabel(const std::string& f, int n);
   std::string emitBinary(const std::string& op);
   std::string emitUnary(const std::string& op);
   std::string emitCompare(const std::string& jmp);
@@ -31,13 +35,14 @@ public:
 
   void setFileName(const std::string& fileName);
   void writeInit();
+  void writeInitSubroutines();
   void writeArithmetic(const std::string& command);
   void writePushPop(CommandType command, const std::string& segment, int index);
   void writeLabel(const std::string& label);
   void writeGoto(const std::string& label);
   void writeIf(const std::string& label);
-  void writeCall(const std::string functionName, int numArgs);
-  void writeFunction(const std::string functionName, int nLocals);
+  void writeCall(const std::string& functionName, int numArgs);
+  void writeFunction(const std::string& functionName, int nLocals);
   void writeReturn();
 };
 
