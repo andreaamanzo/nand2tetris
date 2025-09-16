@@ -11,7 +11,7 @@ CodeWriter::CodeWriter(std::ofstream& outputFile)
 {
 }
 
-std::string CodeWriter::uniqueLabelJmp(const std::string& jmp) 
+std::string CodeWriter::emitUniqueJmpLabel(const std::string& jmp) 
 {
   int* ctr =
     (jmp == "EQ") ? &m_eqLabelId :
@@ -21,25 +21,25 @@ std::string CodeWriter::uniqueLabelJmp(const std::string& jmp)
   if (!ctr)
     throw std::invalid_argument("Unknown jump type: " + jmp);
 
-  int id = (*ctr)++; 
+  int id{ (*ctr)++ }; 
   return "$" + jmp + "_END_" + std::to_string(id);
 }
 
-std::string CodeWriter::uniqueLabelRetAddress() 
+std::string CodeWriter::emitUniqueRetAddressLabel() 
 {
-  int id = m_returnAddressId++ ;
+  int id{ m_returnAddressId++ };
   return "RETURN_ADDRESS_" + std::to_string(id);
 }
 
-std::string CodeWriter::emitCallLabel(const std::string& f, int n) 
+std::string CodeWriter::emitCallLabel(const std::string& f, int n) const
 {
   return "$CALL$" + f + "$" + std::to_string(n) + "$";
 }
 
-std::string CodeWriter::emitBinary(const std::string& op) 
+std::string CodeWriter::emitBinary(const std::string& op) const
 {
-  // pop y in D, punta a x e applica: x = x op y
-  std::string last = (op == "-" ? ("M=M" + op + "D\n") : ("M=D" + op + "M\n"));
+  // pop y in D, point to x and apply: x = x op y
+  std::string last{ (op == "-" ? ("M=M" + op + "D\n") : ("M=D" + op + "M\n")) };
   
   return
     "@SP\n"
@@ -49,19 +49,19 @@ std::string CodeWriter::emitBinary(const std::string& op)
     + last;
 }
 
-std::string CodeWriter::emitUnary(const std::string& op) 
+std::string CodeWriter::emitUnary(const std::string& op) const
 {
-  // punta a top e applica: x = op x
+  // point to top end apply : x = op x
   return
     "@SP\n"
     "A=M-1\n"
     "M=" + op + "M\n";
 }
 
-std::string CodeWriter::emitCompare(const std::string& which) 
+std::string CodeWriter::emitCompare(const std::string& which)
 {
   // which ∈ {"GT","LT","EQ"}
-  const std::string ret{ uniqueLabelJmp(which) };   // es: RET_GT_42
+  const std::string ret{ emitUniqueJmpLabel(which) };   // es: RET_GT_42
   return
     "@" + ret + "\n"
     "D=A\n"
@@ -70,7 +70,7 @@ std::string CodeWriter::emitCompare(const std::string& which)
     "(" + ret + ")\n";
 }
 
-std::string CodeWriter::emitMemorySegment(const std::string& segment, int index)
+std::string CodeWriter::emitMemorySegment(const std::string& segment, int index) const
 {
   if (segment == "temp" && (index < 0 || index > 7))
     throw std::invalid_argument("temp index out of range");
@@ -86,8 +86,9 @@ std::string CodeWriter::emitMemorySegment(const std::string& segment, int index)
   } 
   else if (segment == "temp" || segment == "pointer") 
   {
-    std::string location =
-      (segment == "pointer")  ? std::to_string(3 + index) : std::to_string(5 + index);
+    std::string location{
+      (segment == "pointer")  ? std::to_string(3 + index) : std::to_string(5 + index)
+    };
 
     return 
       "@" + location + "\n";
@@ -98,12 +99,12 @@ std::string CodeWriter::emitMemorySegment(const std::string& segment, int index)
       "@" + m_fileName + "." + std::to_string(index) + "\n";
   }
 
-  std::string base =
-    (segment == "local")    ? "LCL" :
-    (segment == "argument") ? "ARG" :
+  std::string base{
+    (segment == "local")    ? "LCL"  :
+    (segment == "argument") ? "ARG"  :
     (segment == "this")     ? "THIS" :
-    (segment == "that")     ? "THAT" :
-    "";
+    (segment == "that")     ? "THAT" : "" 
+  };
   
   if (base == "") 
     throw std::invalid_argument("Unknown memory segment: " + segment);
@@ -115,32 +116,31 @@ std::string CodeWriter::emitMemorySegment(const std::string& segment, int index)
     "A=D+M\n";
 }
 
-std::string CodeWriter::emitPush(const std::string& value, bool pushAddress)
+std::string CodeWriter::emitPush(const std::string& value, bool pushAddress) const
 {
-  std::string code =
+  return 
     "@" + value + "\n" +
     (pushAddress ? "D=A" : "D=M") + "\n"
     "@SP\n"
     "AM=M+1\n"
     "A=A-1\n"
     "M=D\n";
-
-  return code;
 }
 
-void CodeWriter::setFileName(const std::string& fileName)
+void CodeWriter::setFileName(const std::string& fileName) noexcept
 {
   m_fileName = fileName;
 }
 
 void CodeWriter::writeInit()
 {
-  std::string code =
+  std::string code{
     // SP = 256
     "@256\n"
     "D=A\n"
     "@SP\n"
-    "M=D\n";
+    "M=D\n"
+  };
     
   m_outputFile << code;
 
@@ -152,7 +152,7 @@ void CodeWriter::writeInit()
 
 void CodeWriter::writeInitSubroutines() 
 {
-  std::string code;
+  std::string code{};
 
 // ---------- GT ----------
   code +=
@@ -265,8 +265,8 @@ void CodeWriter::writeInitSubroutines()
     +  
     emitRestore(1, "THAT") + // THAT is stored at LCL - 1
     emitRestore(2, "THIS") + // THIS is stored at LCL - 2
-    emitRestore(3, "ARG")  + // ARG is stored at LCL - 3
-    emitRestore(4, "LCL")  + // LCL is stored at LCL - 4
+    emitRestore(3, "ARG")  + // ARG  is stored at LCL - 3
+    emitRestore(4, "LCL")  + // LCL  is stored at LCL - 4
 
     // 5. Return the saved return address
     "@R14\n"
@@ -355,19 +355,19 @@ void CodeWriter::writePushPop(CommandType command, const std::string& segment, i
     if (segment == "constant")
       throw std::invalid_argument("Cannot pop to constant");
 
-    // Calcola l’indirizzo target e lo salva in R13
+    // Calculate the target address and save it to R13
     code = emitMemorySegment(segment, index);
     code +=
       "D=A\n"
       "@R13\n"
       "M=D\n"
 
-      // Pop dello stack in D
+      // Pop of the stack in D
       "@SP\n"
       "AM=M-1\n"
       "D=M\n"
 
-      // Scrive il pop (D) in *R13 
+      // Write the pop (D) in *R13 
       "@R13\n"
       "A=M\n"
       "M=D\n";
@@ -380,23 +380,22 @@ void CodeWriter::writePushPop(CommandType command, const std::string& segment, i
 
 void CodeWriter::writeLabel(const std::string& label)
 {
-  std::string code{ "(" + label + ")\n" };
-
-  m_outputFile << code;
+  m_outputFile << "(" + label + ")\n";
 }
 
 void CodeWriter::writeGoto(const std::string& label)
 {
-  std::string code = 
+  std::string code{
     "@" + label + "\n"
-    "0;JMP\n";
+    "0;JMP\n"
+  };
  
   m_outputFile << code;
 }
 
 void CodeWriter::writeIf(const std::string& label)
 {
-  std::string code = 
+  std::string code{
     // pop dello stack in D
     "@SP\n"
     "AM=M-1\n"
@@ -404,15 +403,16 @@ void CodeWriter::writeIf(const std::string& label)
 
     // jump se il valore != 0
     "@" + label + "\n"
-    "D;JNE\n";
+    "D;JNE\n"
+  };
  
   m_outputFile << code;
 }
 
 void CodeWriter::writeCall(const std::string& functionName, int numArgs)
 {
-  const std::string retLabel  = uniqueLabelRetAddress();
-  const std::string callLabel = emitCallLabel(functionName, numArgs);
+  const std::string  retLabel{ emitUniqueRetAddressLabel() };
+  const std::string callLabel{ emitCallLabel(functionName, numArgs) };
 
   std::string code{};
 
@@ -422,7 +422,8 @@ void CodeWriter::writeCall(const std::string& functionName, int numArgs)
     "D=A\n";
 
   // If this is the FIRST time for (functionName, numArgs), emit the callLabel
-  if (m_emittedCalls.insert(callLabel).second) {
+  if (m_emittedCalls.insert(callLabel).second) 
+  {
     code +=
       "(" + callLabel + ")\n"
       // Save D (return address) because we will reuse D
@@ -444,8 +445,10 @@ void CodeWriter::writeCall(const std::string& functionName, int numArgs)
       // Jump to the common $CALL$ subroutine
       "@$CALL$\n"
       "0;JMP\n";
-  } else {
-    // callLabel already defined: jump directly to it
+  } 
+  // callLabel already defined: jump directly to it
+  else 
+  {
     code +=
       "@" + callLabel + "\n"
       "0;JMP\n";
@@ -459,16 +462,18 @@ void CodeWriter::writeCall(const std::string& functionName, int numArgs)
 
 void CodeWriter::writeFunction(const std::string& functionName, int nLocals)
 {
-  std::string code =
+  std::string code{
     // declare a label for the function entry
-    "(" + functionName + ")\n";
+    "(" + functionName + ")\n"
+  };
   
   // initialize all local variables to 0
 
   // if nLocals > 4 use an assembly loop
-  if (nLocals > 4) {
-    std::string loopLabel  = functionName + "$initLocals";
-    std::string endLabel   = functionName + "$endInit";
+  if (nLocals > 4) 
+  {
+    std::string loopLabel{ functionName + "$initLocals" };
+    std::string  endLabel{ functionName + "$endInit" };
 
     code +=
       "@" + std::to_string(nLocals) + "\n"  // counter = nLocals
@@ -497,7 +502,8 @@ void CodeWriter::writeFunction(const std::string& functionName, int nLocals)
 
       "(" + endLabel + ")\n";
   }
-  else // else print the code n times
+  // else print the code n times
+  else 
   {
     for (int i = 0; i < nLocals; i++)
     {

@@ -21,20 +21,20 @@ std::string CodeWriter::uniqueLabelJmp(const std::string& jmp)
   if (!ctr)
     throw std::invalid_argument("Unknown jump type: " + jmp);
 
-  int id = (*ctr)++; 
+  int id{ (*ctr)++ }; 
   return jmp + "_END_" + std::to_string(id);
 }
 
 std::string CodeWriter::uniqueLabelRetAddress() 
 {
-  int id = m_returnAddressId++ ;
+  int id{ m_returnAddressId++ };
   return "RETURN_ADDRESS_" + std::to_string(id);
 }
 
 std::string CodeWriter::emitBinary(const std::string& op) 
 {
   // pop y in D, punta a x e applica: x = x op y
-  std::string last = (op == "-" ? ("M=M" + op + "D\n") : ("M=D" + op + "M\n"));
+  std::string last{ (op == "-" ? ("M=M" + op + "D\n") : ("M=D" + op + "M\n")) };
   
   return
     "@SP\n"
@@ -55,7 +55,7 @@ std::string CodeWriter::emitUnary(const std::string& op)
 
 std::string CodeWriter::emitCompare(const std::string& jmp) 
 {
-  const std::string label = uniqueLabelJmp(jmp);
+  const std::string label{ uniqueLabelJmp(jmp) };
   return
     "@SP\n"
     "AM=M-1\n"
@@ -249,7 +249,7 @@ void CodeWriter::writeIf(const std::string& label)
   m_outputFile << code;
 }
 
-void CodeWriter::writeCall(const std::string functionName, int numArgs)
+void CodeWriter::writeCall(const std::string& functionName, int numArgs)
 {
   std::string returnAddressLabel{ uniqueLabelRetAddress() };
 
@@ -287,7 +287,7 @@ void CodeWriter::writeCall(const std::string functionName, int numArgs)
     m_outputFile << code;
 }
 
-void CodeWriter::writeFunction(const std::string functionName, int nLocals)
+void CodeWriter::writeFunction(const std::string& functionName, int nLocals)
 {
   std::string code =
     // declare a label for the function entry

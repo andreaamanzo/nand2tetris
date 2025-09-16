@@ -12,22 +12,25 @@ Parser::Parser(std::ifstream& inputFile)
 {
 }
 
-std::vector<std::string> Parser::cleanFile(std::ifstream& file)
+std::vector<std::string> Parser::cleanFile(std::ifstream& file) const
 {
-  std::vector<std::string> cleanedFile;
-  std::string line;
+  std::vector<std::string> cleanedFile{};
+  std::string line{};
   while (std::getline(file, line)) {
     // Remove comments
     size_t commentPos = line.find("//");
-    if (commentPos != std::string::npos) {
+    if (commentPos != std::string::npos) 
+    {
       line = line.substr(0, commentPos);
     }
     // Trim leading and trailing whitespace
-    size_t first = line.find_first_not_of(" \t\r\n");
-    size_t last = line.find_last_not_of(" \t\r\n");
-    if (first != std::string::npos && last != std::string::npos) {
+    size_t first{ line.find_first_not_of(" \t\r\n") };
+    size_t last{ line.find_last_not_of(" \t\r\n") };
+    if (first != std::string::npos && last != std::string::npos)
+     {
       line = line.substr(first, last - first + 1);
-      if (!line.empty()) {
+      if (!line.empty()) 
+      {
         cleanedFile.push_back(line);
       }
     }
@@ -35,7 +38,7 @@ std::vector<std::string> Parser::cleanFile(std::ifstream& file)
   return cleanedFile;
 }
 
-std::vector<std::string> Parser::getCurrentCommandTokens()
+std::vector<std::string> Parser::getCurrentCommandTokens() const
 {
   std::vector<std::string> tokens{};
   size_t start{ 0 };
@@ -54,7 +57,7 @@ std::vector<std::string> Parser::getCurrentCommandTokens()
   return tokens;
 }
 
-bool Parser::hasMoreCommands()
+bool Parser::hasMoreCommands() const noexcept
 {
   return m_hasMoreCommands;
 }
@@ -67,7 +70,7 @@ void Parser::advance()
   }
 
   m_currentCommandIndex ++;
-  size_t index = static_cast<size_t>(m_currentCommandIndex);
+  size_t index{ static_cast<size_t>(m_currentCommandIndex) };
   m_currentCommand = m_cleanedFile[index];
 
   if (index == m_cleanedFile.size() - 1)
@@ -76,7 +79,7 @@ void Parser::advance()
   }
 }
 
-CommandType Parser::commandType()
+CommandType Parser::commandType() const
 {
   std::string command{};
   size_t firstSpace = m_currentCommand.find(' ');
@@ -140,8 +143,7 @@ CommandType Parser::commandType()
   throw std::runtime_error("Unknown command: " + command);
 }
 
-
-std::string Parser::arg1()
+std::string Parser::arg1() const
 {
   CommandType type{ commandType() };
   if (type == CommandType::C_RETURN)
@@ -164,7 +166,7 @@ std::string Parser::arg1()
   throw std::runtime_error("Command has insufficient arguments for arg1: " + m_currentCommand);
 }
 
-int Parser::arg2()
+int Parser::arg2() const
 {
   CommandType type{ commandType() };
   if (type == CommandType::C_POP || type == CommandType::C_PUSH ||
@@ -175,7 +177,7 @@ int Parser::arg2()
     {
       try 
       {
-        int value = std::stoi(tokens[2]);
+        int value{ std::stoi(tokens[2]) };
         if (value < 0) 
         {
           throw std::runtime_error("Argument for arg2 must not be negative: " + m_currentCommand);

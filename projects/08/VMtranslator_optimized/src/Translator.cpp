@@ -13,18 +13,6 @@ Translator::Translator(InputFiles& inputFiles, std::ofstream& outputFile)
 {
 }
 
-bool Translator::isValidName(const std::string& name)
-{
-  bool isValid = 
-    name.size() > 0 &&
-    !std::isdigit(name[0]) && 
-    std::all_of(name.begin(), name.end(), [](char c) {
-      return std::isdigit(c) || std::isalpha(c) || c == '.' || c == ':' || c == '_';
-    });
-
-  return isValid;
-}
-
 void Translator::translate()
 {
   CodeWriter codeWriter(m_outputFile);

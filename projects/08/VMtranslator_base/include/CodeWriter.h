@@ -36,8 +36,8 @@ public:
   void writeLabel(const std::string& label);
   void writeGoto(const std::string& label);
   void writeIf(const std::string& label);
-  void writeCall(const std::string functionName, int numArgs);
-  void writeFunction(const std::string functionName, int nLocals);
+  void writeCall(const std::string& functionName, int numArgs);
+  void writeFunction(const std::string& functionName, int nLocals);
   void writeReturn();
 };
 

@@ -21,19 +21,19 @@ private:
   int m_ltLabelId{ 0 };
   int m_returnAddressId{ 0 };
 
-  std::string uniqueLabelJmp(const std::string& jmp);
-  std::string uniqueLabelRetAddress();
-  std::string emitCallLabel(const std::string& f, int n);
-  std::string emitBinary(const std::string& op);
-  std::string emitUnary(const std::string& op);
+  std::string emitUniqueJmpLabel(const std::string& jmp);
+  std::string emitUniqueRetAddressLabel();
+  std::string emitCallLabel(const std::string& f, int n) const;
+  std::string emitBinary(const std::string& op) const;
+  std::string emitUnary(const std::string& op) const;
   std::string emitCompare(const std::string& jmp);
-  std::string emitPush(const std::string& value, bool pushAddress=false);
-  std::string emitMemorySegment(const std::string& segment, int index);
+  std::string emitPush(const std::string& value, bool pushAddress=false) const;
+  std::string emitMemorySegment(const std::string& segment, int index) const;
   
 public:
   CodeWriter(std::ofstream& outputFile);
 
-  void setFileName(const std::string& fileName);
+  void setFileName(const std::string& fileName) noexcept;
   void writeInit();
   void writeInitSubroutines();
   void writeArithmetic(const std::string& command);
