@@ -82,7 +82,13 @@ class Math {
       return 0; 
     }
 
-    let q = Math.divide(x, y + y); // divide(x, 2 * y)
+    if ((y + y) < 0) { // overflow
+      let q = 0;
+      let divisionRem = x;
+    } else {
+      let q = Math.divide(x, y + y); // divide(x, 2 * y)
+    }
+
     if (divisionRem < y) { 
       let result =  q + q; // 2 * q 
     } else { 
@@ -136,5 +142,15 @@ class Math {
     if (x < 0) { return -x; }
     
     return x;
+  }
+
+  /** returns a % b */
+  function int mod(int a, int b) {
+    var int d, r;
+
+    let d = Math.divide(a,b);
+    let r = a - (b * d);
+    
+    return r;
   }
 }

@@ -9,54 +9,167 @@
  * string-oriented operations.
  */
 class String {
+  field int len;
+  field int maxLen;
+  field Array chars;
 
-    /** constructs a new empty string with a maximum length of maxLength
-     *  and initial length of 0. */
-    constructor String new(int maxLength) {
-    }
+  /** constructs a new empty string with a maximum length of maxLength
+   *  and initial length of 0. */
+  constructor String new(int maxLength) {
+		if (maxLength < 0) {
+			do Sys.error(14);
+			return this;
+		}
+		if (maxLength = 0) {
+			let maxLength = 1;
+		}
+    let chars = Array.new(maxLength);
+    let maxLen = maxLength;
+		let len = 0;
 
-    /** Disposes this string. */
-    method void dispose() {
-    }
+		return this;
+  }
 
-    /** Returns the current length of this string. */
-    method int length() {
-    }
+  /** Disposes this string. */
+  method void dispose() {
+    do chars.dispose();
+		do Memory.deAlloc(this);
 
-    /** Returns the character at the j-th location of this string. */
-    method char charAt(int j) {
-    }
+		return;
+  }
 
-    /** Sets the character at the j-th location of this string to c. */
-    method void setCharAt(int j, char c) {
-    }
+  /** Returns the current length of this string. */
+  method int length() {
+		return len;
+  }
 
-    /** Appends c to this string's end and returns this string. */
-    method String appendChar(char c) {
-    }
+  /** Returns the character at the j-th location of this string. */
+  method char charAt(int j) {
+		if ((j > (len - 1)) | j < 0) {
+			do Sys.error(15);
+			return 0;
+		}
 
-    /** Erases the last character from this string. */
-    method void eraseLastChar() {
-    }
+		return chars[j];
+  }
 
-    /** Returns the integer value of this string, 
-     *  until a non-digit character is detected. */
-    method int intValue() {
-    }
+  /** Sets the character at the j-th location of this string to c. */
+  method void setCharAt(int j, char c) {
+		if ((j > (len - 1)) | j < 0) {
+			do Sys.error(16);
+			return;
+		}
 
-    /** Sets this string to hold a representation of the given value. */
-    method void setInt(int val) {
-    }
+		let chars[j] = c;
 
-    /** Returns the new line character. */
-    function char newLine() {
-    }
+		return;
+  }
 
-    /** Returns the backspace character. */
-    function char backSpace() {
-    }
+  /** Appends c to this string's end and returns this string. */
+  method String appendChar(char c) {
+		if (len = maxLen) {
+			do Sys.error(17);
+			return this;
+		}
 
-    /** Returns the double quote (") character. */
-    function char doubleQuote() {
-    }
+		let chars[len] = c;
+		let len = len + 1;
+
+		return this;
+  }
+
+  /** Erases the last character from this string. */
+  method void eraseLastChar() {
+		if (len < 1) {
+			do Sys.error(18);
+			return;
+		}
+
+		let len = len - 1;
+
+		return;
+  }
+
+  /** Returns the integer value of this string, 
+   *  until a non-digit character is detected. */
+  method int intValue() {
+		var int val, idx, c;
+		var boolean neg;
+
+		if (len = 0) { return 0; }
+
+		let val = 0;
+		 // check if string[0] is "-"
+		if (chars[0] = 45) { 
+			let neg = true; 
+			let idx = 1;
+		} else {
+			let neg = false;
+			let idx = 0;
+		}
+
+		while (idx < len) {
+			let c = chars[idx];
+			// check if the next char is not a number
+			if ((c < 48) | (c > 57)) {
+				return val;
+			}
+			// get the int value of c
+			let c = c - 48;
+			let val = (val * 10) + c;
+
+			let idx = idx + 1;
+		}
+
+		if (neg) { return -val; }
+		return val;
+  }
+
+  /** Sets this string to hold a representation of the given value. */
+  method void setInt(int val) {
+		// clear the string
+		let len = 0;
+
+		if (val < 0) {
+			let val = -val;
+			do appendChar(45);
+		}
+
+		do setIntHelper(val);
+
+		return;
+  }
+
+	method void setIntHelper(int val) {
+		var int lastDigit;
+		var char c;
+
+		// let lastDigit = Math.mod(val, 10);
+		let lastDigit = val - (10 * (val / 10)); // mod(val, 10)
+		let c = lastDigit + 48;
+
+		if (val < 10) {
+			do appendChar(c);
+		} else {
+			do setIntHelper(val/10);
+			do appendChar(c);
+		}
+
+		return;
+	}
+
+  /** Returns the new line character. */
+  function char newLine() {
+		return 128;
+  }
+
+  /** Returns the backspace character. */
+  function char backSpace() {
+		return 129;
+  }
+
+  /** Returns the double quote (") character. */
+  function char doubleQuote() {
+		return 34;
+  }
 }
