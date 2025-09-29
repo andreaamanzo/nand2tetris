@@ -11,11 +11,17 @@
  */
 class Array {
 
-    /** Constructs a new Array of the given size. */
-    function Array new(int size) {
+  /** Constructs a new Array of the given size. */
+  function Array new(int size) {
+    if ((size - 1) < 0) { // Can't have a size 0 Array
+      do Sys.error(2);
     }
+    return Memory.alloc(size);
+  }
 
-    /** Disposes this array. */
-    method void dispose() {
-    }
+  /** Disposes this array. */
+  method void dispose() {
+    do Memory.deAlloc(this);
+    return;
+  }
 }
